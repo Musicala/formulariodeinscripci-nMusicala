@@ -1,0 +1,599 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inscripci&oacute;n Musicala</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2&iexcl;family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+  <!-- Background scene -->
+  <div class="bg-scene">
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+    <div class="note-float">&#9834;</div>
+    <div class="note-float">&#9835;</div>
+    <div class="note-float">&#9833;</div>
+    <div class="note-float">&#9836;</div>
+    <div class="note-float">&#127925;</div>
+    <div class="note-float">&#9834;</div>
+    <div class="note-float">&#9835;</div>
+  </div>
+
+  <main class="app-shell">
+
+    <!--  HERO  -->
+    <section class="hero-card">
+      <div class="hero-copy">
+        <span class="eyebrow">Inscripciones 2025</span>
+        <h1>Comienza tu camino en <span>Musicala</span></h1>
+        <p>Completa la informaci&oacute;n del estudiante y del acudiente para iniciar el proceso. Hemos dise&ntilde;ado este formulario para que sea claro, c&oacute;modo y seguro.</p>
+        <div class="hero-badges">
+          <span>&#127891; Proceso guiado</span>
+          <span>&#128274; Registro seguro</span>
+          <span>&#127912; M&uacute;ltiples cursos</span>
+        </div>
+      </div>
+      <div class="hero-side">
+        <!-- SVG ILLUSTRATION -->
+        <svg class="hero-svg-scene" viewBox="0 0 320 300" xmlns="http://www.w3.org/2000/svg" fill="none">
+          <!-- Glowing orb background -->
+          <circle cx="160" cy="150" r="130" fill="url(#heroGlow)" opacity=".4"/>
+          
+          <!-- Main instrument silhouette: Guitar -->
+          <g transform="translate(95, 20)">
+            <!-- Guitar body -->
+            <ellipse cx="65" cy="195" rx="50" ry="62" fill="url(#guitarBody)" opacity=".9"/>
+            <ellipse cx="65" cy="195" rx="34" ry="44" fill="url(#guitarBodyInner)" opacity=".6"/>
+            <!-- Sound hole -->
+            <circle cx="65" cy="188" r="18" fill="rgba(0,0,0,.35)"/>
+            <circle cx="65" cy="188" r="14" fill="rgba(0,0,0,.2)"/>
+            <!-- Guitar neck -->
+            <rect x="57" y="50" width="16" height="155" rx="8" fill="url(#neckGrad)"/>
+            <!-- Frets -->
+            <line x1="57" y1="90" x2="73" y2="90" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
+            <line x1="57" y1="110" x2="73" y2="110" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
+            <line x1="57" y1="130" x2="73" y2="130" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
+            <line x1="57" y1="150" x2="73" y2="150" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
+            <!-- Strings -->
+            <line x1="60" y1="50" x2="60" y2="240" stroke="rgba(255,255,255,.5)" stroke-width=".8"/>
+            <line x1="63" y1="50" x2="63" y2="240" stroke="rgba(255,255,255,.5)" stroke-width=".8"/>
+            <line x1="66" y1="50" x2="66" y2="240" stroke="rgba(255,255,255,.5)" stroke-width=".8"/>
+            <line x1="69" y1="50" x2="69" y2="240" stroke="rgba(255,255,255,.5)" stroke-width=".8"/>
+            <line x1="72" y1="50" x2="72" y2="240" stroke="rgba(255,255,255,.5)" stroke-width=".8"/>
+            <!-- Headstock -->
+            <rect x="53" y="30" width="24" height="28" rx="6" fill="url(#headstockGrad)"/>
+            <!-- Tuning pegs -->
+            <circle cx="50" cy="36" r="4" fill="#ffb347"/>
+            <circle cx="50" cy="46" r="4" fill="#ffb347"/>
+            <circle cx="50" cy="56" r="4" fill="#ffb347"/>
+            <circle cx="80" cy="36" r="4" fill="#ff8dd6"/>
+            <circle cx="80" cy="46" r="4" fill="#ff8dd6"/>
+            <circle cx="80" cy="56" r="4" fill="#ff8dd6"/>
+          </g>
+
+          <!-- Floating music notes -->
+          <text x="20" y="80" font-size="28" fill="rgba(255,200,255,.7)" font-family="serif">&#9835;</text>
+          <text x="240" y="60" font-size="22" fill="rgba(255,150,220,.6)" font-family="serif">&#9833;</text>
+          <text x="15" y="200" font-size="18" fill="rgba(200,180,255,.5)" font-family="serif">&#9834;</text>
+          <text x="260" y="210" font-size="24" fill="rgba(255,183,77,.6)" font-family="serif">&#9836;</text>
+          <text x="30" y="140" font-size="14" fill="rgba(255,150,200,.5)" font-family="serif">&#9834;</text>
+          <text x="270" y="140" font-size="16" fill="rgba(180,150,255,.5)" font-family="serif">&#9835;</text>
+
+          <!-- Stars/sparkles -->
+          <g fill="#ffb347" opacity=".8">
+            <path d="M38 45 L40 40 L42 45 L47 47 L42 49 L40 54 L38 49 L33 47Z"/>
+          </g>
+          <g fill="#ff8dd6" opacity=".7">
+            <path d="M260 90 L261.5 86 L263 90 L267 91.5 L263 93 L261.5 97 L260 93 L256 91.5Z"/>
+          </g>
+          <g fill="#c4a9ff" opacity=".6">
+            <path d="M30 260 L31 257 L32 260 L35 261 L32 262 L31 265 L30 262 L27 261Z"/>
+          </g>
+
+          <!-- Piano keys decoration at bottom -->
+          <g transform="translate(40, 265)" opacity=".7">
+            <rect x="0" y="0" width="14" height="28" rx="3" fill="white" stroke="rgba(180,150,255,.4)" stroke-width="1"/>
+            <rect x="16" y="0" width="14" height="28" rx="3" fill="white" stroke="rgba(180,150,255,.4)" stroke-width="1"/>
+            <rect x="32" y="0" width="14" height="28" rx="3" fill="white" stroke="rgba(180,150,255,.4)" stroke-width="1"/>
+            <rect x="48" y="0" width="14" height="28" rx="3" fill="white" stroke="rgba(180,150,255,.4)" stroke-width="1"/>
+            <rect x="64" y="0" width="14" height="28" rx="3" fill="white" stroke="rgba(180,150,255,.4)" stroke-width="1"/>
+            <rect x="80" y="0" width="14" height="28" rx="3" fill="white" stroke="rgba(180,150,255,.4)" stroke-width="1"/>
+            <rect x="96" y="0" width="14" height="28" rx="3" fill="white" stroke="rgba(180,150,255,.4)" stroke-width="1"/>
+            <rect x="112" y="0" width="14" height="28" rx="3" fill="white" stroke="rgba(180,150,255,.4)" stroke-width="1"/>
+            <!-- Black keys -->
+            <rect x="10" y="0" width="9" height="18" rx="2" fill="url(#blackKey)"/>
+            <rect x="26" y="0" width="9" height="18" rx="2" fill="url(#blackKey)"/>
+            <rect x="58" y="0" width="9" height="18" rx="2" fill="url(#blackKey)"/>
+            <rect x="74" y="0" width="9" height="18" rx="2" fill="url(#blackKey)"/>
+            <rect x="90" y="0" width="9" height="18" rx="2" fill="url(#blackKey)"/>
+          </g>
+
+          <defs>
+            <radialGradient id="heroGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#9b6fff"/>
+              <stop offset="100%" stop-color="#ff4fb5" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="guitarBody" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#d4a4ff"/>
+              <stop offset="60%" stop-color="#9b6fff"/>
+              <stop offset="100%" stop-color="#ff4fb5"/>
+            </linearGradient>
+            <linearGradient id="guitarBodyInner" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,.2)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </linearGradient>
+            <linearGradient id="neckGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#7c56ff"/>
+              <stop offset="100%" stop-color="#5a3dbf"/>
+            </linearGradient>
+            <linearGradient id="headstockGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#9b7aff"/>
+              <stop offset="100%" stop-color="#6040c0"/>
+            </linearGradient>
+            <linearGradient id="blackKey" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#3a2070"/>
+              <stop offset="100%" stop-color="#1a0d40"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </section>
+
+    <!--  STEPS  -->
+    <div class="steps-strip">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <strong>Completa tus datos</strong>
+          <span>Informaci&oacute;n del estudiante y acudiente en pocos pasos.</span>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <strong>Foto del estudiante</strong>
+          <span>Puedes adjuntarla para complementar el proceso (opcional).</span>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <strong>&iexcl;Listo!</strong>
+          <span>Tu registro ser&aacute; revisado por nuestro equipo.</span>
+        </div>
+      </div>
+    </div>
+
+    <!--  FORM CARD  -->
+    <section class="form-card">
+      <div class="form-header">
+        <div>
+          <span class="section-kicker">Inscripci&oacute;n</span>
+          <h2>Formulario de ingreso</h2>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Progreso</span>
+            <span id="progressText">0%</span>
+          </div>
+          <div class="progress-bar"><div id="progressFill"></div></div>
+        </div>
+      </div>
+
+      <form id="enrollmentForm" novalidate>
+        <div class="form-body">
+
+          <!-- SECCI&Oacute;N 1: Datos personales -->
+          <section class="form-section">
+            <div class="section-title">
+              <div class="section-title-row">
+                <div class="section-icon">&#127891;</div>
+                <div>
+                  <h3>Datos personales</h3>
+                  <p>Informaci&oacute;n bsica del estudiante para iniciar su proceso.</p>
+                </div>
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="studentName">Nombres y apellidos (estudiante) *</label>
+                <input type="text" id="studentName" name="studentName" placeholder="Nombre completo" required />
+              </div>
+              <div class="field">
+                <label for="studentDocumentType">Tipo y n&uacute;mero de documento (estudiante) *</label>
+                <div class="doc-row">
+                  <select id="studentDocumentType" name="studentDocumentType" required>
+                    <option value="">Tipo</option>
+                    <option value="CC">CC</option>
+                    <option value="TI">TI</option>
+                    <option value="CE">CE</option>
+                    <option value="PAS">PAS</option>
+                    <option value="PPT">PPT</option>
+                  </select>
+                  <input type="text" id="studentDocumentNumber" name="studentDocumentNumber" placeholder="N&uacute;mero" inputmode="numeric" pattern="[0-9]+" required />
+                </div>
+                <small class="hint">Se guardar&aacute; como un solo valor, por ejemplo: CC10036442.</small>
+              </div>
+              <div class="field">
+                <label for="birthDate">Fecha de nacimiento *</label>
+                <input type="date" id="birthDate" name="birthDate" required max="" />
+              </div>
+              <div class="field">
+                <label for="age">Edad (calculada autom&aacute;ticamente)</label>
+                <input type="number" id="age" name="age" min="0" max="120" readonly />
+              </div>
+              <div class="field">
+                <label for="studentCity">Localidad/Municipio de residencia *</label>
+                <input type="text" id="studentCity" name="studentCity" required />
+              </div>
+              <div class="field">
+                <label for="studentAddress">Direcci&oacute;n de residencia *</label>
+                <input type="text" id="studentAddress" name="studentAddress" required />
+              </div>
+              <div class="field">
+                <label for="studentEmail">Correo electr&oacute;nico *</label>
+                <input type="email" id="studentEmail" name="studentEmail" placeholder="correo@ejemplo.com" required />
+                <small class="hint">Usa un correo activo para recibir informaci&oacute;n y material complementario.</small>
+              </div>
+              <div class="field">
+                <label for="studentPhoto">Foto del estudiante (opcional)</label>
+                <input type="file" id="studentPhoto" name="studentPhoto" accept=".jpg,.jpeg,.png,.webp" />
+                <small class="hint">Formatos: JPG, PNG o WEBP. M&aacute;ximo 3 MB.</small>
+              </div>
+              <div class="field">
+                <label for="phone">Tel&eacute;fono fijo *</label>
+                <input type="text" id="phone" name="phone" placeholder="Ej: 6012345678" inputmode="numeric" required />
+              </div>
+              <div class="field">
+                <label for="mobile">Celular *</label>
+                <input type="text" id="mobile" name="mobile" placeholder="Ej: 3001234567 o +57..." inputmode="tel" required />
+              </div>
+            </div>
+          </section>
+
+          <!-- SECCI&Oacute;N 2: Programa -->
+          <section class="form-section">
+            <div class="section-title">
+              <div class="section-title-row">
+                <div class="section-icon">&#127925;</div>
+                <div>
+                  <h3>Programa de inter&eacute;s</h3>
+                  <p>Selecciona el curso y las opciones que mejor se ajustan al proceso del estudiante.</p>
+                </div>
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="course">Curso *</label>
+                <select id="course" name="course" required>
+                  <option value="">Selecciona una opci&oacute;n</option>
+                  <option value="Baile">Baile</option>
+                  <option value="M&uacute;sica">M&uacute;sica</option>
+                  <option value="Artes manuales">Artes manuales</option>
+                  <option value="Talleres vacacionales">Talleres vacacionales</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="interests">Intereses musicales del estudiante</label>
+                <textarea id="interests" name="interests" rows="3" placeholder="Ej: g&eacute;neros, cantantes, int&eacute;rpretes favoritos..."></textarea>
+              </div>
+            </div>
+
+            <!-- M?sica -->
+            <div id="musicBlock" class="conditional-block hidden">
+              <div class="field">
+                <label>Instrumento *</label>
+                <div class="option-grid cards six">
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Piano"><span>&#127929; Piano</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Guitarra Ac&uacute;stica o el&eacute;ctrica"><span>&#127928; Guitarra</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Canto"><span>&#127908; Canto</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Ukelele"><span>&#129697; Ukelele</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Viol&iacute;n"><span>&#127931; Viol&iacute;n</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Cello"><span>&#127932; Cello</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Iniciaci&oacute;n musical"><span>&#127925; Iniciaci&oacute;n musical</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Percusi&oacute;n"><span>&#129345; Percusi&oacute;n</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Bajo"><span>&#127928; Bajo</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Teor&iacute;a musical"><span>&#128214; Teor&iacute;a musical</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Preuniversitario"><span>&#127891; Preuniversitario</span></label>
+                  <label class="choice-card"><input type="checkbox" name="instrument" value="Saxof&oacute;n"><span>&#127927; Saxof&oacute;n</span></label>
+                  <label class="choice-card other-card full-span">
+                    <span>Otro instrumento</span>
+                    <input type="text" id="instrumentOther" name="instrumentOther" placeholder="Especifica otro instrumento" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Baile -->
+            <div id="danceBlock" class="conditional-block hidden">
+              <div class="course-visual-header dance-visual">
+                <svg class="course-deco-svg" viewBox="0 0 520 130" xmlns="http://www.w3.org/2000/svg" fill="none" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="danceLineGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#ff4fb5"/>
+                      <stop offset="55%" stop-color="#ff8dd6"/>
+                      <stop offset="100%" stop-color="#ffb347"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M24 88 C86 28, 142 116, 206 62 C252 24, 286 96, 346 70 C388 52, 426 30, 496 46"
+                        stroke="url(#danceLineGrad)" stroke-width="8" stroke-linecap="round"/>
+                  <circle cx="90" cy="74" r="8" fill="#ff4fb5"/>
+                  <circle cx="250" cy="58" r="9" fill="#ff8dd6"/>
+                  <circle cx="410" cy="42" r="8" fill="#ffb347"/>
+                </svg>
+                <span class="course-visual-label">Baile</span>
+              </div>
+              <div class="field">
+                <label>Estilo *</label>
+                <div class="option-grid cards five">
+                  <label class="choice-card"><input type="checkbox" name="style" value="Latino"><span>&#128131; Latino</span></label>
+                  <label class="choice-card"><input type="checkbox" name="style" value="Jazz"><span>&#127927; Jazz</span></label>
+                  <label class="choice-card"><input type="checkbox" name="style" value="L&iacute;rico"><span>&#129648; L&iacute;rico</span></label>
+                  <label class="choice-card"><input type="checkbox" name="style" value="Urbano"><span>&#128378; Urbano</span></label>
+                  <label class="choice-card"><input type="checkbox" name="style" value="Ballet"><span>&#129648; Ballet</span></label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Artes -->
+            <div id="artsBlock" class="conditional-block hidden">
+              <div class="course-visual-header arts-visual">
+                <svg class="course-deco-svg" viewBox="0 0 520 130" xmlns="http://www.w3.org/2000/svg" fill="none" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="artsLineGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#38d9c0"/>
+                      <stop offset="55%" stop-color="#9b6fff"/>
+                      <stop offset="100%" stop-color="#6f49ff"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M20 88 C72 52, 128 108, 190 68 C240 36, 284 90, 340 56 C392 24, 438 80, 500 44"
+                        stroke="url(#artsLineGrad)" stroke-width="8" stroke-linecap="round"/>
+                  <circle cx="82" cy="80" r="8" fill="#38d9c0"/>
+                  <rect x="232" y="52" width="16" height="16" rx="4" fill="#9b6fff"/>
+                  <circle cx="430" cy="54" r="8" fill="#6f49ff"/>
+                </svg>
+                <span class="course-visual-label">Artes manuales</span>
+              </div>
+              <div class="field">
+                <label>&Eacute;nfasis *</label>
+                <div class="option-grid cards four">
+                  <label class="choice-card"><input type="checkbox" name="emphasis" value="Pintura (&oacute;leo, acuarelas, acr&iacute;lica)"><span>&#127912; Pintura</span></label>
+                  <label class="choice-card"><input type="checkbox" name="emphasis" value="Dibujo (iniciacin, nivel medio, nivel avanzado)"><span>&#9999;&#65039; Dibujo</span></label>
+                  <label class="choice-card"><input type="checkbox" name="emphasis" value="Manualidades (Origami, plastilina, foamy)"><span>&#9986;&#65039; Manualidades</span></label>
+                  <label class="choice-card"><input type="checkbox" name="emphasis" value="Mixto"><span>&#127752; Mixto</span></label>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid two" style="margin-top:22px">
+              <div class="field">
+                <label for="selectedPlan">Plan seleccionado *</label>
+                <select id="selectedPlan" name="selectedPlan" required>
+                  <option value="">Selecciona una opci&oacute;n</option>
+                  <option value="Clase de prueba / cortes&iacute;a">Clase de prueba / cortes&iacute;a</option>
+                  <option value="Paquete de 4 clases">Paquete de 4 clases</option>
+                  <option value="Paquete de 8 clases">Paquete de 8 clases</option>
+                  <option value="Paquete de 12 clases">Paquete de 12 clases</option>
+                  <option value="Paquete de 24 clases">Paquete de 24 clases</option>
+                  <option value="Paquete de 48 clases">Paquete de 48 clases</option>
+                  <option value="Suscripci&oacute;n 1 mes">Suscripci&oacute;n 1 mes</option>
+                  <option value="Suscripci&oacute;n 2 meses">Suscripci&oacute;n 2 meses</option>
+                  <option value="Suscripci&oacute;n 3 meses">Suscripci&oacute;n 3 meses</option>
+                  <option value="Suscripci&oacute;n 6 meses">Suscripci&oacute;n 6 meses</option>
+                  <option value="Suscripci&oacute;n 1 a&ntilde;o">Suscripci&oacute;n 1 a&ntilde;o</option>
+                  <option value="Vacacional">Vacacional</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="modality">Modalidad *</label>
+                <select id="modality" name="modality" required>
+                  <option value="">Selecciona una opci&oacute;n</option>
+                  <option value="Musicala Sede">Musicala Sede</option>
+                  <option value="Musicala Hogar (presencial a domicilio)">Musicala Hogar (presencial a domicilio)</option>
+                  <option value="Musicala Virtual">Musicala Virtual</option>
+                  <option value="AutoMusicala (suscripcin plataforma)">AutoMusicala (suscripcin plataforma)</option>
+                  <option value="Mixto">Mixto</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECCI&Oacute;N 3: Acudiente -->
+          <section class="form-section">
+            <div class="section-title">
+              <div class="section-title-row">
+                <div class="section-icon">&#128737;&#65039;</div>
+                <div>
+                  <h3>Datos de emergencia y acudiente</h3>
+                  <p>Informaci&oacute;n clave para acompa&ntilde;ar al estudiante de forma adecuada.</p>
+                </div>
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field"><label for="eps">EPS *</label><input type="text" id="eps" name="eps" required /></div>
+              <div class="field"><label for="rh">RH *</label><input type="text" id="rh" name="rh" placeholder="Ej: O+" required /></div>
+              <div class="field"><label for="guardianName">Nombre completo (acudiente) *</label><input type="text" id="guardianName" name="guardianName" required /></div>
+              <div class="field">
+                <label for="guardianDocumentType">Tipo y n&uacute;mero de identificaci&oacute;n (acudiente) *</label>
+                <div class="doc-row">
+                  <select id="guardianDocumentType" name="guardianDocumentType" required>
+                    <option value="">Tipo</option>
+                    <option value="CC">CC</option>
+                    <option value="TI">TI</option>
+                    <option value="CE">CE</option>
+                    <option value="PAS">PAS</option>
+                    <option value="PPT">PPT</option>
+                  </select>
+                  <input type="text" id="guardianDocumentNumber" name="guardianDocumentNumber" placeholder="N&uacute;mero" inputmode="numeric" pattern="[0-9]+" required />
+                </div>
+              </div>
+              <div class="field"><label for="guardianMobile">Celular (acudiente) *</label><input type="text" id="guardianMobile" name="guardianMobile" inputmode="tel" required /></div>
+              <div class="field"><label for="guardianPhone">Tel&eacute;fono fijo (acudiente) *</label><input type="text" id="guardianPhone" name="guardianPhone" inputmode="numeric" required /></div>
+              <div class="field"><label for="guardianAddress">Direcci&oacute;n (acudiente) *</label><input type="text" id="guardianAddress" name="guardianAddress" required /></div>
+              <div class="field"><label for="relationship">Parentesco *</label><input type="text" id="relationship" name="relationship" placeholder="Ej: Madre, Padre, Tutor" required /></div>
+              <div class="field field-full">
+                <label for="healthCondition">&iquest;Presentas alguna condici&oacute;n y/o enfermedad relevante para tus clases&iexcl; *</label>
+                <textarea id="healthCondition" name="healthCondition" rows="4" required></textarea>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECCIÓN 4: Términos -->
+          <section class="form-section">
+            <div class="section-title">
+              <div class="section-title-row">
+                <div class="section-icon">&#128196;</div>
+                <div>
+                  <h3>T&eacute;rminos y condiciones</h3>
+                  <p>Lee con atenci&oacute;n esta informaci&oacute;n antes de continuar con la inscripci&oacute;n.</p>
+                </div>
+              </div>
+            </div>
+            <div class="terms-box">
+              <h4>Resumen de t&eacute;rminos y condiciones (lectura f&aacute;cil)</h4>
+
+              <div class="terms-section">
+                <h5>1) Introducci&oacute;n y alcance</h5>
+                <ul>
+                  <li>Este acuerdo regula la experiencia educativa, art&iacute;stica y administrativa entre Musicala y el estudiante/acudiente.</li>
+                  <li>Su objetivo es garantizar claridad, respeto, seguridad, organizaci&oacute;n y calidad del servicio.</li>
+                  <li>Al inscribirte, aceptas estas condiciones y sus actualizaciones comunicadas por canales oficiales.</li>
+                </ul>
+              </div>
+
+              <div class="terms-section">
+                <h5>2) Inscripci&oacute;n, pagos y vigencia</h5>
+                <ul>
+                  <li>La inscripci&oacute;n exige datos veraces y aceptaci&oacute;n del acuerdo.</li>
+                  <li>Pagos de matr&iacute;cula/planes se realizan por anticipado y por canales autorizados.</li>
+                  <li>Las sesiones deben usarse dentro de la vigencia del plan; fuera de ese periodo no se recuperan, salvo casos excepcionales evaluados por Musicala.</li>
+                </ul>
+              </div>
+
+              <div class="terms-section">
+                <h5>3) Programaci&oacute;n, asistencia y puntualidad</h5>
+                <ul>
+                  <li>La programaci&oacute;n se gestiona exclusivamente por canales institucionales.</li>
+                  <li>Reprogramaciones/cancelaciones: m&iacute;nimo 3 horas antes; domingos/festivos: 24 horas antes.</li>
+                  <li>Si hay retraso mayor a 15 minutos, la clase puede darse por tomada seg&uacute;n pol&iacute;tica operativa.</li>
+                </ul>
+              </div>
+
+              <div class="terms-section">
+                <h5>4) Convivencia y bienestar</h5>
+                <ul>
+                  <li>Se exige trato respetuoso entre estudiantes, docentes y equipo administrativo.</li>
+                  <li>No se permiten conductas de acoso, discriminaci&oacute;n o agresi&oacute;n.</li>
+                  <li>Musicala puede aplicar medidas pedag&oacute;gicas/administrativas cuando haya incumplimientos.</li>
+                </ul>
+              </div>
+
+              <div class="terms-section">
+                <h5>5) Uso de instalaciones, comunicaci&oacute;n y seguridad</h5>
+                <ul>
+                  <li>Instalaciones y recursos deben usarse responsablemente; da&ntilde;os por mal uso pueden generar compensaci&oacute;n.</li>
+                  <li>La comunicaci&oacute;n acad&eacute;mica y administrativa se realiza por canales oficiales de Musicala.</li>
+                  <li>La sede cuenta con c&aacute;maras de seguridad bajo normativa colombiana de privacidad y protecci&oacute;n de datos.</li>
+                </ul>
+              </div>
+
+              <div class="terms-section">
+                <h5>6) Cancelaciones, reembolsos y casos especiales</h5>
+                <ul>
+                  <li>Las condiciones de reembolso/cancelaci&oacute;n se aplican seg&uacute;n momento del proceso y lineamientos institucionales.</li>
+                  <li>Situaciones excepcionales pueden revisarse con soportes para evaluar alternativas (reprogramaci&oacute;n, cesi&oacute;n o congelaci&oacute;n).</li>
+                  <li>Si Musicala cancela por causa institucional, se ofrecer&aacute; reprogramaci&oacute;n, ajuste equivalente o reembolso cuando aplique.</li>
+                </ul>
+              </div>
+
+              <div class="terms-section">
+                <h5>7) Privacidad, propiedad intelectual y marco legal</h5>
+                <ul>
+                  <li>Tus datos se tratan para fines pedag&oacute;gicos/administrativos conforme a la ley colombiana.</li>
+                  <li>Materiales, metodolog&iacute;as y contenidos de Musicala est&aacute;n protegidos por propiedad intelectual.</li>
+                  <li>Cualquier conflicto se intenta resolver primero por di&aacute;logo y, de ser necesario, por los mecanismos legales vigentes.</li>
+                </ul>
+              </div>
+
+              <p class="terms-closing">
+                <strong>Aceptaci&oacute;n informada:</strong> al marcar “S&iacute;, estoy de acuerdo”, declaras que le&iacute;ste y comprendiste este resumen y aceptas las condiciones del servicio de Musicala.
+              </p>
+            </div>
+            <a id="termsExpandBtn" class="terms-expand-btn" href="https://musicala.github.io/terminosycondiciones/" target="_blank" rel="noopener noreferrer">Leer m&aacute;s</a>
+            <div class="grid two" style="margin-top:20px">
+              <div class="field">
+                <label>&iquest;Est&aacute;s de acuerdo con los t&eacute;rminos y condiciones de Musicala? *</label>
+                <div class="inline-options">
+                  <label><input type="radio" name="termsAgreement" value="S&iacute;" required> S&iacute;, estoy de acuerdo</label>
+                  <label><input type="radio" name="termsAgreement" value="No" required> No</label>
+                </div>
+              </div>
+              <div id="termsReasonWrap" class="field hidden">
+                <label for="termsReason">&iquest;Por qu&eacute; no est&aacute;s de acuerdo?</label>
+                <textarea id="termsReason" name="termsReason" rows="3"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECCI&Oacute;N 5: Referido -->
+          <section class="form-section">
+            <div class="section-title">
+              <div class="section-title-row">
+                <div class="section-icon">&#128158;</div>
+                <div>
+                  <h3>Referido Musicala</h3>
+                  <p>Opcional. Si conoces a alguien que tambi&eacute;n quiera vivir esta experiencia.</p>
+                </div>
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="referredName">Nombre (referido)</label>
+                <input type="text" id="referredName" name="referredName" />
+              </div>
+              <div class="field">
+                <label for="referredMobile">Celular (referido)</label>
+                <input type="text" id="referredMobile" name="referredMobile" />
+              </div>
+            </div>
+          </section>
+
+        </div><!-- /form-body -->
+
+        <div class="actions">
+          <button type="submit" id="submitBtn" class="btn-primary">
+            <span>Enviar inscripci&oacute;n </span>
+          </button>
+          <p class="footer-note">Al enviar este formulario, aceptas el tratamiento de la informaci&oacute;n suministrada para fines del proceso de inscripci&oacute;n en Musicala.</p>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="successModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <!-- Success SVG -->
+      <div class="modal-badge">
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <path d="M8 21L16 29L32 12" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h3>&iexcl;Bienvenido a la familia Musicala!</h3>
+      <p>Completaste la inscripci&oacute;n correctamente. Si tienes alguna pregunta, no dudes en contactarnos. Pronto recibir&aacute;s confirmaci&oacute;n.</p>
+      <button id="closeSuccessBtn" type="button" class="btn-secondary">Cerrar</button>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
+
