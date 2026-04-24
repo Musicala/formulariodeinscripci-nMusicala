@@ -242,13 +242,9 @@
                 <small class="hint">Usa un correo activo para recibir informaci&oacute;n y material complementario.</small>
               </div>
               <div class="field">
-                <label for="studentPhoto">Foto del estudiante (opcional)</label>
-                <input type="file" id="studentPhoto" name="studentPhoto" accept=".jpg,.jpeg,.png,.webp" />
-                <small class="hint">Formatos: JPG, PNG o WEBP. M&aacute;ximo 3 MB.</small>
-              </div>
-              <div class="field">
                 <label for="phone">Tel&eacute;fono fijo *</label>
                 <input type="text" id="phone" name="phone" placeholder="Ej: 6012345678" inputmode="numeric" required />
+                <label><input type="checkbox" id="samePhoneAsMobile" /> Usar el mismo n&uacute;mero del celular</label>
               </div>
               <div class="field">
                 <label for="mobile">Celular *</label>
@@ -416,13 +412,17 @@
               </div>
             </div>
             <div class="grid two">
+              <div class="field field-full">
+                <label><input type="checkbox" id="guardianUseStudentData" /> Usar para acudiente la misma direcci&oacute;n y tel&eacute;fono fijo del estudiante</label>
+                <small class="hint">M&aacute;rcalo antes de diligenciar esta secci&oacute;n. El celular del acudiente debe ser diferente al celular del estudiante.</small>
+              </div>
               <div class="field"><label for="eps">EPS *</label><input type="text" id="eps" name="eps" required /></div>
               <div class="field"><label for="rh">RH *</label><input type="text" id="rh" name="rh" placeholder="Ej: O+" required /></div>
               <div class="field"><label for="guardianName">Nombre completo (acudiente) *</label><input type="text" id="guardianName" name="guardianName" required /></div>
               <div class="field">
-                <label for="guardianDocumentType">Tipo y n&uacute;mero de identificaci&oacute;n (acudiente) *</label>
+                <label for="guardianDocumentType">Tipo y n&uacute;mero de identificaci&oacute;n (acudiente)</label>
                 <div class="doc-row">
-                  <select id="guardianDocumentType" name="guardianDocumentType" required>
+                  <select id="guardianDocumentType" name="guardianDocumentType">
                     <option value="">Tipo</option>
                     <option value="CC">CC</option>
                     <option value="TI">TI</option>
@@ -430,8 +430,9 @@
                     <option value="PAS">PAS</option>
                     <option value="PPT">PPT</option>
                   </select>
-                  <input type="text" id="guardianDocumentNumber" name="guardianDocumentNumber" placeholder="N&uacute;mero" inputmode="numeric" pattern="[0-9]+" required />
+                  <input type="text" id="guardianDocumentNumber" name="guardianDocumentNumber" placeholder="N&uacute;mero" inputmode="numeric" pattern="[0-9]+" />
                 </div>
+                <small class="hint">Si el estudiante es menor de edad, este dato es obligatorio. Si es mayor de edad, es opcional (facturaci&oacute;n).</small>
               </div>
               <div class="field"><label for="guardianMobile">Celular (acudiente) *</label><input type="text" id="guardianMobile" name="guardianMobile" inputmode="tel" required /></div>
               <div class="field"><label for="guardianPhone">Tel&eacute;fono fijo (acudiente) *</label><input type="text" id="guardianPhone" name="guardianPhone" inputmode="numeric" required /></div>
