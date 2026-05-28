@@ -10,6 +10,7 @@ const ageInput = document.getElementById('age');
 const courseSelect = document.getElementById('course');
 const musicBlock = document.getElementById('musicBlock');
 const danceBlock = document.getElementById('danceBlock');
+const theaterBlock = document.getElementById('theaterBlock');
 const artsBlock = document.getElementById('artsBlock');
 const termsReasonWrap = document.getElementById('termsReasonWrap');
 const submitBtn = document.getElementById('submitBtn');
@@ -43,6 +44,7 @@ function toggleCourseBlocks() {
   const v = courseSelect.value;
   musicBlock.classList.toggle('hidden', v !== 'Música');
   danceBlock.classList.toggle('hidden', v !== 'Baile');
+  theaterBlock.classList.toggle('hidden', v !== 'Teatro');
   artsBlock.classList.toggle('hidden', v !== 'Artes manuales');
 }
 
@@ -52,7 +54,9 @@ function toggleTermsReason() {
 }
 
 function getCheckedValues(name) {
-  return [...form.querySelectorAll(`input[name="${name}"]:checked`)].map((el) => el.value);
+  return [...form.querySelectorAll(`input[name="${name}"]:checked`)]
+    .filter((el) => !el.closest('.hidden'))
+    .map((el) => el.value);
 }
 
 function setFieldError(field, message) {
@@ -73,33 +77,6 @@ function clearErrors() {
   form.querySelectorAll('.error-text').forEach((el) => el.remove());
 }
 
-function getFieldLabel(field) {
-  if (!field) return 'Este campo';
-  const wrap = field.closest('.field');
-  const label = wrap ? wrap.querySelector('label[for]') : null;
-  return (label ? label.textContent : field.name || 'Este campo').replace('*', '').trim();
-}
-
-function validateVisibleRequiredFields() {
-  const requiredFields = [...form.querySelectorAll('[required]')].filter((field) => !field.closest('.hidden'));
-  for (const field of requiredFields) {
-    if (field.type === 'radio') continue;
-    if (!String(field.value || '').trim()) {
-      const msg = `${getFieldLabel(field)} es obligatorio.`;
-      setFieldError(field, msg);
-      return msg;
-    }
-  }
-
-  const radioGroups = [...new Set([...form.querySelectorAll('input[type="radio"][required]')].map((r) => r.name))];
-  for (const groupName of radioGroups) {
-    if (!form.querySelector(`input[name="${groupName}"]:checked`)) {
-      return 'Debes seleccionar una opción en términos y condiciones.';
-    }
-  }
-  return '';
-}
-
 function validateConditionalSelections() {
   const c = courseSelect.value;
   if (c === 'Música' && getCheckedValues('instrument').length === 0 && !document.getElementById('instrumentOther').value.trim()) {
@@ -108,6 +85,10 @@ function validateConditionalSelections() {
   }
   if (c === 'Baile' && getCheckedValues('style').length === 0) {
     showToast('Selecciona al menos un estilo.', 'error');
+    return false;
+  }
+  if (c === 'Teatro' && getCheckedValues('style').length === 0) {
+    showToast('Selecciona al menos un área teatral.', 'error');
     return false;
   }
   if (c === 'Artes manuales' && getCheckedValues('emphasis').length === 0) {
@@ -128,6 +109,34 @@ function validatePhoto(file) {
 
 function normalizeDigits(value) {
   return String(value || '').replace(/\s+/g, '');
+}
+
+function syncStudentFixedPhoneWithMobile() {
+  if (!samePhoneAsMobile) return;
+  if (samePhoneAsMobile.checked) {
+    form.phone.value = form.mobile.value || '';
+    form.phone.readOnly = true;
+  } else {
+    form.phone.readOnly = false;
+  }
+  if (guardianUseStudentData && guardianUseStudentData.checked) {
+    form.guardianPhone.value = form.phone.value || '';
+  }
+  updateProgress();
+}
+
+function syncGuardianFromStudent() {
+  if (!guardianUseStudentData) return;
+  if (guardianUseStudentData.checked) {
+    form.guardianPhone.value = form.phone.value || '';
+    form.guardianAddress.value = form.studentAddress.value || '';
+    form.guardianPhone.readOnly = true;
+    form.guardianAddress.readOnly = true;
+  } else {
+    form.guardianPhone.readOnly = false;
+    form.guardianAddress.readOnly = false;
+  }
+  updateProgress();
 }
 
 function validateBirthDate(dateStr) {
@@ -190,59 +199,6 @@ function combineDocument(typeId, numberId, label) {
   return `${type}${num}`;
 }
 
-function combineGuardianDocument(ageValue) {
-  const typeEl = document.getElementById('guardianDocumentType');
-  const numEl = document.getElementById('guardianDocumentNumber');
-  const type = String(typeEl?.value || '').trim();
-  const num = String(numEl?.value || '').trim();
-  const isAdult = Number(ageValue) >= 18;
-
-  if (!type && !num) {
-    if (isAdult) return '';
-    setFieldError(typeEl, 'Para menor de edad, el documento del acudiente es obligatorio.');
-    return null;
-  }
-  if (!type) {
-    setFieldError(typeEl, 'Selecciona el tipo de documento (acudiente).');
-    return null;
-  }
-  if (!num || !/^\d+$/.test(num)) {
-    setFieldError(numEl, 'El número de documento (acudiente) debe contener solo números.');
-    return null;
-  }
-  return `${type}${num}`;
-}
-
-function syncStudentFixedPhoneWithMobile() {
-  if (!samePhoneAsMobile) return;
-  const phone = document.getElementById('phone');
-  const mobile = document.getElementById('mobile');
-  if (!phone || !mobile) return;
-  if (samePhoneAsMobile.checked) {
-    phone.value = mobile.value;
-    phone.readOnly = true;
-  } else {
-    phone.readOnly = false;
-  }
-}
-
-function syncGuardianFromStudent() {
-  if (!guardianUseStudentData) return;
-  const guardianPhone = document.getElementById('guardianPhone');
-  const guardianAddress = document.getElementById('guardianAddress');
-  if (!guardianPhone || !guardianAddress) return;
-
-  if (guardianUseStudentData.checked) {
-    guardianPhone.value = form.phone.value || '';
-    guardianAddress.value = form.studentAddress.value || '';
-    guardianPhone.readOnly = true;
-    guardianAddress.readOnly = true;
-  } else {
-    guardianPhone.readOnly = false;
-    guardianAddress.readOnly = false;
-  }
-}
-
 const emailCheckCache = { value: '', exists: false };
 async function checkEmailExistsRemote(email) {
   const normalized = String(email || '').trim().toLowerCase();
@@ -299,9 +255,9 @@ function buildPayload(photoBase64, photoFile) {
   if (other) instruments.push(`Otro: ${other}`);
 
   const studentDocument = combineDocument('studentDocumentType', 'studentDocumentNumber', 'estudiante');
-  const guardianDocument = combineGuardianDocument(form.age.value);
+  const guardianDocument = combineDocument('guardianDocumentType', 'guardianDocumentNumber', 'acudiente');
 
-  if (!studentDocument || guardianDocument === null) return null;
+  if (!studentDocument || !guardianDocument) return null;
 
   return {
     studentName: form.studentName.value.trim(),
@@ -315,7 +271,7 @@ function buildPayload(photoBase64, photoFile) {
     mobile: normalizeDigits(form.mobile.value),
     course,
     instrument: course === 'Música' ? instruments.join(', ') : '',
-    style: course === 'Baile' ? styles.join(', ') : '',
+    style: ['Baile', 'Teatro'].includes(course) ? styles.join(', ') : '',
     emphasis: course === 'Artes manuales' ? emphases.join(', ') : '',
     interests: form.interests.value.trim(),
     selectedPlan: form.selectedPlan.value,
@@ -331,6 +287,8 @@ function buildPayload(photoBase64, photoFile) {
     healthCondition: form.healthCondition.value.trim(),
     termsAgreement: form.querySelector('input[name="termsAgreement"]:checked')?.value || '',
     termsReason: form.termsReason.value.trim(),
+    imageUseAuthorization: form.querySelector('input[name="imageUseAuthorization"]:checked')?.value || '',
+    imageUseAuthorizationBy: form.querySelector('input[name="imageUseAuthorizationBy"]:checked')?.value || '',
     referredName: form.referredName.value.trim(),
     referredMobile: normalizeDigits(form.referredMobile.value),
     photo: photoFile ? { name: photoFile.name, mimeType: photoFile.type, base64: photoBase64 } : null
@@ -341,9 +299,11 @@ async function submitForm(event) {
   event.preventDefault();
   clearErrors();
 
-  const missingRequired = validateVisibleRequiredFields();
-  if (missingRequired) {
-    showToast(missingRequired, 'error');
+  if (!form.checkValidity()) {
+    [...form.querySelectorAll(':invalid')].forEach((field) => {
+      if (field.type !== 'radio') setFieldError(field, 'Este campo es obligatorio.');
+    });
+    showToast('Revisa los campos obligatorios antes de enviar.', 'error');
     updateProgress();
     return;
   }
@@ -409,6 +369,14 @@ async function submitForm(event) {
     }
   }
 
+  const photoFile = form.studentPhoto.files[0];
+  const photoError = validatePhoto(photoFile);
+  if (photoError) {
+    setFieldError(form.studentPhoto, photoError);
+    showToast(photoError, 'error');
+    return;
+  }
+
   if (!CONFIG.apiUrl || CONFIG.apiUrl.includes('PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE')) {
     showToast('Falta configurar la URL del Apps Script en app.js.', 'error');
     return;
@@ -418,7 +386,8 @@ async function submitForm(event) {
   submitBtn.innerHTML = '<span>Enviando...</span>';
 
   try {
-    const payload = buildPayload('', null);
+    const photoBase64 = photoFile ? await fileToBase64(photoFile) : '';
+    const payload = buildPayload(photoBase64, photoFile);
     if (!payload) {
       showToast('Revisa el tipo y número de documento.', 'error');
       return;
@@ -436,6 +405,8 @@ async function submitForm(event) {
     form.reset();
     toggleCourseBlocks();
     toggleTermsReason();
+    syncStudentFixedPhoneWithMobile();
+    syncGuardianFromStudent();
     ageInput.value = '';
     updateProgress();
 
@@ -481,7 +452,23 @@ form.addEventListener('input', updateProgress);
 form.addEventListener('change', updateProgress);
 form.addEventListener('submit', submitForm);
 
-  if (studentEmailInput) {
+if (samePhoneAsMobile) {
+  samePhoneAsMobile.addEventListener('change', syncStudentFixedPhoneWithMobile);
+  form.mobile.addEventListener('input', () => {
+    if (samePhoneAsMobile.checked) syncStudentFixedPhoneWithMobile();
+  });
+}
+
+if (guardianUseStudentData) {
+  guardianUseStudentData.addEventListener('change', syncGuardianFromStudent);
+  [form.phone, form.studentAddress].forEach((field) => {
+    field.addEventListener('input', () => {
+      if (guardianUseStudentData.checked) syncGuardianFromStudent();
+    });
+  });
+}
+
+if (studentEmailInput) {
   studentEmailInput.addEventListener('blur', async () => {
     const email = (studentEmailInput.value || '').trim().toLowerCase();
     if (!email) return;
@@ -501,34 +488,6 @@ form.addEventListener('submit', submitForm);
       // noop
     }
   });
-}
-
-if (samePhoneAsMobile) {
-  samePhoneAsMobile.addEventListener('change', () => {
-    syncStudentFixedPhoneWithMobile();
-    updateProgress();
-  });
-}
-
-if (guardianUseStudentData) {
-  guardianUseStudentData.addEventListener('change', () => {
-    syncGuardianFromStudent();
-    updateProgress();
-  });
-}
-
-if (form.mobile) {
-  form.mobile.addEventListener('input', () => {
-    if (samePhoneAsMobile && samePhoneAsMobile.checked) syncStudentFixedPhoneWithMobile();
-  });
-}
-
-if (form.phone || form.studentAddress) {
-  const runSyncGuardian = () => {
-    if (guardianUseStudentData && guardianUseStudentData.checked) syncGuardianFromStudent();
-  };
-  if (form.phone) form.phone.addEventListener('input', runSyncGuardian);
-  if (form.studentAddress) form.studentAddress.addEventListener('input', runSyncGuardian);
 }
 
 closeSuccessBtn.addEventListener('click', () => {

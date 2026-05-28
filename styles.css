@@ -291,11 +291,29 @@ body {
   padding: 32px 36px 28px;
   background: linear-gradient(180deg, #fdfbff 0%, #f8f4ff 100%);
   border-bottom: 1px solid var(--stroke);
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  align-items: center;
   gap: 24px;
-  flex-wrap: wrap;
+}
+
+.form-header-main {
+  min-width: 0;
+}
+
+.form-header-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.form-header-logo {
+  width: clamp(145px, 18vw, 230px);
+  height: auto;
+  flex-shrink: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 22px rgba(111,73,255,.16));
 }
 
 .section-kicker {
@@ -325,7 +343,7 @@ body {
 }
 
 .progress-wrap {
-  min-width: min(300px, 100%);
+  width: min(300px, 100%);
 }
 
 .progress-label {
@@ -419,6 +437,29 @@ body {
   display: flex;
   flex-direction: column;
   gap: 7px;
+}
+
+.helper-check {
+  margin-bottom: 18px;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: .86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inline-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  flex-shrink: 0;
 }
 
 .doc-row {
@@ -873,7 +914,8 @@ input[type="file"]::file-selector-button:hover {
   .hero-side { display: none; }
   .hero-copy { padding: 36px 28px; }
   .steps-strip { grid-template-columns: 1fr; }
-  .form-header { flex-direction: column; align-items: stretch; }
+  .form-header { grid-template-columns: 1fr; align-items: stretch; }
+  .form-header-side { align-items: flex-start; }
   .form-body { padding: 0 24px 24px; }
   .actions { padding: 24px; }
 }
@@ -886,9 +928,60 @@ input[type="file"]::file-selector-button:hover {
   .form-body { padding: 0 18px 18px; }
   .actions { padding: 20px 18px; }
   .form-header { padding: 22px 18px 18px; }
+  .form-header-logo { width: 132px; }
   .grid.two,
   .option-grid.cards.six,
   .option-grid.cards.five,
   .option-grid.cards.four { grid-template-columns: 1fr; }
   .form-header h2 { font-size: 1.6rem; }
+}
+
+/* ═══════════════════════════════════════
+   VISUAL HEADERS — DANZA Y ARTES
+   ═══════════════════════════════════════ */
+.course-visual-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px 14px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.course-visual-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1.5px solid transparent;
+}
+
+/* Danza — degradado rosa-naranja */
+.dance-visual {
+  background: linear-gradient(135deg,
+    rgba(255,79,181,.07) 0%,
+    rgba(255,183,77,.06) 100%);
+}
+.dance-visual::before {
+  border-color: rgba(255,141,214,.3);
+}
+
+/* Artes — degradado teal-violeta */
+.course-deco-svg {
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  filter: drop-shadow(0 6px 18px rgba(111,73,255,.12));
+}
+
+.course-visual-label {
+  font-size: .8rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }

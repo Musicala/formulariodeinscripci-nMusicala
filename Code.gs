@@ -1,13 +1,17 @@
 ﻿const CONFIG = {
   SHEET_ID: '1MsWABlj_LdhWKzVq_u-1M6S5zEJ2yQ72oiusvzzQZAI',
   SHEET_NAME: 'Inscripci\u00f3n estudiantes',
+  DRIVE_FOLDER_ID: '1BWw69WoDVSRbPC1fafpXgeJnbkWI6dNI',
   ALERT_EMAIL: 'musicalaasesor@gmail.com',
   EMAIL_COLUMN_INDEX: 8,
+  MAX_IMAGE_SIZE_MB: 3,
+  ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
   TIMEZONE: 'America/Bogota'
 };
 
 const HEADERS = [
   'Estudiantes',
+  'Estado',
   'No. de documento (estudiante)',
   'Fecha de nacimiento (estudiante)',
   'Edad',
@@ -32,12 +36,14 @@ const HEADERS = [
   'TelÃ©fono fijo (acudiente)',
   'DirecciÃ³n (acudiente)',
   'Parentesco',
-  'Presentas alguna condiciÃ³n y/o enfermedad que consideres relevante para tus clases',
+  'Nombre (referido)',
+  'Celular (referido)',
   'Marca temporal',
   'Â¿EstÃ¡s de acuerdo con los tÃ©rminos y condiciones de Musicala?',
   'Â¿Por quÃ© no estÃ¡s de acuerdo con los tÃ©rminos y condiciones actuales?',
-  'Nombre (referido)',
-  'Celular (referido)'
+  'Â¿Autoriza a Musicala para tomar fotos y videos del estudiante y compartirlos en redes sociales y YouTube?',
+  'Â¿QuiÃ©n otorga la autorizaciÃ³n de uso de imagen?',
+  'Presentas alguna condiciÃ³n y/o enfermedad que consideres relevante para tus clases'
 ];
 
 function doGet(e) {
@@ -89,8 +95,10 @@ function doPost(e) {
       });
     }
 
-    const row = buildRow_(payload, null);
-    const savedRow = writeEnrollmentRow_(sheet, row);
+    const fileMeta = payload.photo ? savePhoto_(payload.photo, payload.studentName) : null;
+    const row = buildRow_(payload, fileMeta);
+    sheet.appendRow(row);
+    const savedRow = sheet.getLastRow();
     const notify = notifyAdvisor_(payload, sheet.getName(), savedRow);
     if (!notify || !notify.ok) {
       throw new Error('La inscripción se guardó, pero falló el correo de notificación: ' + (notify && notify.error ? notify.error : 'sin detalle.'));
@@ -126,12 +134,15 @@ function validatePayload_(payload) {
     'eps',
     'rh',
     'guardianName',
+    'guardianDocument',
     'guardianMobile',
     'guardianPhone',
     'guardianAddress',
     'relationship',
     'healthCondition',
-    'termsAgreement'
+    'termsAgreement',
+    'imageUseAuthorization',
+    'imageUseAuthorizationBy'
   ];
 
   requiredFields.forEach(function (key) {
@@ -151,13 +162,28 @@ function validatePayload_(payload) {
     throw new Error('La fecha de nacimiento no es válida.');
   }
 
+  if (payload.photo) {
+    if (!payload.photo.base64 || !payload.photo.mimeType || !payload.photo.name) {
+      throw new Error('La foto adjunta no es vÃ¡lida. Intenta cargarla nuevamente.');
+    }
+
+    if (CONFIG.ALLOWED_IMAGE_TYPES.indexOf(payload.photo.mimeType) === -1) {
+      throw new Error('La foto debe estar en formato JPG, PNG o WEBP.');
+    }
+
+    const imageBytes = Utilities.base64Decode(payload.photo.base64).length;
+    const maxBytes = CONFIG.MAX_IMAGE_SIZE_MB * 1024 * 1024;
+    if (imageBytes > maxBytes) {
+      throw new Error('La imagen supera el tamaÃ±o mÃ¡ximo permitido de ' + CONFIG.MAX_IMAGE_SIZE_MB + ' MB.');
+    }
+  }
 
   if (normalizeText_(payload.course) === 'musica' && !String(payload.instrument || '').trim()) {
     throw new Error('Selecciona al menos un instrumento.');
   }
 
-  if (payload.course === 'Baile' && !String(payload.style || '').trim()) {
-    throw new Error('Selecciona al menos un estilo.');
+  if ((payload.course === 'Baile' || payload.course === 'Teatro') && !String(payload.style || '').trim()) {
+    throw new Error(payload.course === 'Teatro' ? 'Selecciona al menos un área teatral.' : 'Selecciona al menos un estilo.');
   }
 
   if (payload.course === 'Artes manuales' && !String(payload.emphasis || '').trim()) {
@@ -171,14 +197,8 @@ function validatePayload_(payload) {
   if (!/^(CC|TI|CE|PAS|PPT)\d+$/.test(String(payload.studentDocument || '').trim())) {
     throw new Error('El documento del estudiante no es válido. Debe incluir tipo y número, por ejemplo CC10036442.');
   }
-  const computedAge = calculateAgeFromBirthDate_(payload.birthDate);
-  const guardianDocument = String(payload.guardianDocument || '').trim();
-  if (computedAge < 18) {
-    if (!/^(CC|TI|CE|PAS|PPT)\d+$/.test(guardianDocument)) {
-      throw new Error('Para menores de edad, el documento del acudiente es obligatorio y debe verse como CC10036442.');
-    }
-  } else if (guardianDocument && !/^(CC|TI|CE|PAS|PPT)\d+$/.test(guardianDocument)) {
-    throw new Error('Si ingresas documento de acudiente, debe verse como CC10036442.');
+  if (!/^(CC|TI|CE|PAS|PPT)\d+$/.test(String(payload.guardianDocument || '').trim())) {
+    throw new Error('El documento del acudiente no es válido. Debe incluir tipo y número, por ejemplo CC10036442.');
   }
 
   validatePhoneServer_(payload.phone, 'Teléfono fijo');
@@ -188,16 +208,6 @@ function validatePayload_(payload) {
   if (String(payload.mobile || '').replace(/\s+/g, '') === String(payload.guardianMobile || '').replace(/\s+/g, '')) {
     throw new Error('El celular del acudiente debe ser diferente al celular del estudiante.');
   }
-}
-
-function calculateAgeFromBirthDate_(birthDate) {
-  const birth = new Date(String(birthDate || '') + 'T00:00:00');
-  if (isNaN(birth.getTime())) return 0;
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const md = today.getMonth() - birth.getMonth();
-  if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
 }
 
 function getSheet_() {
@@ -230,7 +240,14 @@ function getSheet_() {
 function ensureHeaders_(sheet) {
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+    return;
   }
+
+  const newHeaderIndexes = [31, 32, 33];
+  newHeaderIndexes.forEach(function (index) {
+    const cell = sheet.getRange(1, index + 1);
+    cell.setValue(HEADERS[index]);
+  });
 }
 
 function emailAlreadyExists_(sheet, email) {
@@ -247,9 +264,26 @@ function emailAlreadyExists_(sheet, email) {
   return !!found;
 }
 
+function savePhoto_(photo, studentName) {
+  const folder = DriveApp.getFolderById(CONFIG.DRIVE_FOLDER_ID);
+  const bytes = Utilities.base64Decode(photo.base64);
+  const extension = getSafeExtension_(photo.name, photo.mimeType);
+  const cleanName = sanitizeFileName_(studentName || 'estudiante');
+  const timestamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyyMMdd-HHmmss');
+  const fileName = cleanName + '-' + timestamp + '.' + extension;
+  const blob = Utilities.newBlob(bytes, photo.mimeType, fileName);
+  const file = folder.createFile(blob);
+
+  return {
+    id: file.getId(),
+    url: file.getUrl(),
+    name: file.getName()
+  };
+}
+
 function buildRow_(payload, fileMeta) {
   const now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
-  const row = new Array(32).fill('');
+  const row = new Array(34).fill('');
 
   // A: Nombre estudiante
   row[0] = payload.studentName || '';
@@ -290,37 +324,13 @@ function buildRow_(payload, fileMeta) {
   row[28] = now;
   row[29] = payload.termsAgreement || '';
   row[30] = payload.termsReason || '';
-  // AF: condición de salud (si existe en tu hoja)
-  row[31] = payload.healthCondition || '';
+  // AF-AG: autorización de uso de imagen
+  row[31] = payload.imageUseAuthorization || '';
+  row[32] = payload.imageUseAuthorizationBy || '';
+  // AH: condición de salud
+  row[33] = payload.healthCondition || '';
 
   return row;
-}
-
-function writeEnrollmentRow_(sheet, row) {
-  const targetRow = findFirstEmptyRowByColumnA_(sheet);
-
-  // B y E tienen fórmula en la hoja: no se escriben aquí.
-  // A
-  sheet.getRange(targetRow, 1).setValue(row[0]);
-  // C:D
-  sheet.getRange(targetRow, 3, 1, 2).setValues([[row[2], row[3]]]);
-  // F:AF
-  sheet.getRange(targetRow, 6, 1, 27).setValues([row.slice(5, 32)]);
-
-  return targetRow;
-}
-
-function findFirstEmptyRowByColumnA_(sheet) {
-  const maxRows = sheet.getMaxRows();
-  if (maxRows < 2) return 2;
-
-  const values = sheet.getRange(2, 1, maxRows - 1, 1).getDisplayValues();
-  for (var i = 0; i < values.length; i++) {
-    if (!String(values[i][0] || '').trim()) {
-      return i + 2;
-    }
-  }
-  return sheet.getLastRow() + 1;
 }
 
 function normalizeEmail_(email) {
@@ -413,6 +423,7 @@ function getSafeExtension_(fileName, mimeType) {
 function assertConfig_() {
   if (!CONFIG.SHEET_ID) throw new Error('Falta configurar el ID del archivo de Google Sheets.');
   if (!CONFIG.SHEET_NAME) throw new Error('Falta configurar el nombre de la pestaÃ±a de Google Sheets.');
+  if (!CONFIG.DRIVE_FOLDER_ID) throw new Error('Falta configurar la carpeta de Google Drive para las fotos.');
 }
 
 function jsonResponse_(obj) {
