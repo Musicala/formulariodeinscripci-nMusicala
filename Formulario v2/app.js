@@ -67,9 +67,10 @@ const courseBannerWrap = document.getElementById('courseBannerWrap');
 const courseBannerImg = document.getElementById('courseBannerImg');
 
 const COURSE_BANNERS = {
-  'Música':               './assets/Música.png',
+  'Baile':                './assets/baile.png',
+  'Música':               './assets/musica.png',
   'Teatro':               './assets/Teatro.png',
-  'Artes manuales':       './assets/Artes P.png',
+  'Artes manuales':       './assets/artes.png',
   'Talleres vacacionales':'./assets/Vacacionales.png',
 };
 
