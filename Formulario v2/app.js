@@ -63,6 +63,15 @@ const progressFill = document.getElementById('progressFill');
 const studentEmailInput = document.getElementById('studentEmail');
 const samePhoneAsMobile = document.getElementById('samePhoneAsMobile');
 const guardianUseStudentData = document.getElementById('guardianUseStudentData');
+const courseBannerWrap = document.getElementById('courseBannerWrap');
+const courseBannerImg = document.getElementById('courseBannerImg');
+
+const COURSE_BANNERS = {
+  'Música':               './assets/Música.png',
+  'Teatro':               './assets/Teatro.png',
+  'Artes manuales':       './assets/Artes P.png',
+  'Talleres vacacionales':'./assets/Vacacionales.png',
+};
 
 function showToast(message, type = 'success') {
   toast.textContent = message;
@@ -79,6 +88,19 @@ function calculateAge(dateStr) {
   const md = today.getMonth() - birth.getMonth();
   if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age--;
   return Number.isFinite(age) && age >= 0 ? age : '';
+}
+
+function updateCourseBanner() {
+  const v = courseSelect.value;
+  const src = COURSE_BANNERS[v];
+  if (src) {
+    courseBannerImg.src = src;
+    courseBannerImg.alt = v;
+    courseBannerWrap.classList.remove('hidden');
+  } else {
+    courseBannerWrap.classList.add('hidden');
+    courseBannerImg.src = '';
+  }
 }
 
 function toggleCourseBlocks() {
@@ -463,6 +485,7 @@ async function submitForm(event) {
 
     form.reset();
     toggleCourseBlocks();
+    updateCourseBanner();
     toggleTermsReason();
     syncStudentFixedPhoneWithMobile();
     syncGuardianFromStudent();
@@ -497,6 +520,7 @@ birthDateInput.addEventListener('input', () => {
 
 courseSelect.addEventListener('change', () => {
   toggleCourseBlocks();
+  updateCourseBanner();
   updateProgress();
 });
 
@@ -555,6 +579,7 @@ closeSuccessBtn.addEventListener('click', () => {
 });
 
 toggleCourseBlocks();
+updateCourseBanner();
 toggleTermsReason();
 syncStudentFixedPhoneWithMobile();
 syncGuardianFromStudent();
