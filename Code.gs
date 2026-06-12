@@ -1,7 +1,7 @@
 ﻿const CONFIG = {
   SHEET_ID: '1MsWABlj_LdhWKzVq_u-1M6S5zEJ2yQ72oiusvzzQZAI',
   SHEET_NAME: 'Inscripci\u00f3n estudiantes',
-  DRIVE_FOLDER_ID: '1BWw69WoDVSRbPC1fafpXgeJnbkWI6dNI',
+  DRIVE_FOLDER_ID: '1X4lJi2nTVguuJCJqWTGSJ2LNkrExBbK1',
   ALERT_EMAIL: 'musicalaasesor@gmail.com',
   EMAIL_COLUMN_INDEX: 8,
   MAX_IMAGE_SIZE_MB: 3,
@@ -95,8 +95,7 @@ function doPost(e) {
       });
     }
 
-    const fileMeta = payload.photo ? savePhoto_(payload.photo, payload.studentName) : null;
-    const row = buildRow_(payload, fileMeta);
+    const row = buildRow_(payload);
     sheet.appendRow(row);
     const savedRow = sheet.getLastRow();
     const notify = notifyAdvisor_(payload, sheet.getName(), savedRow);
@@ -160,22 +159,6 @@ function validatePayload_(payload) {
   const today = new Date();
   if (isNaN(birth.getTime()) || birth > today) {
     throw new Error('La fecha de nacimiento no es válida.');
-  }
-
-  if (payload.photo) {
-    if (!payload.photo.base64 || !payload.photo.mimeType || !payload.photo.name) {
-      throw new Error('La foto adjunta no es vÃ¡lida. Intenta cargarla nuevamente.');
-    }
-
-    if (CONFIG.ALLOWED_IMAGE_TYPES.indexOf(payload.photo.mimeType) === -1) {
-      throw new Error('La foto debe estar en formato JPG, PNG o WEBP.');
-    }
-
-    const imageBytes = Utilities.base64Decode(payload.photo.base64).length;
-    const maxBytes = CONFIG.MAX_IMAGE_SIZE_MB * 1024 * 1024;
-    if (imageBytes > maxBytes) {
-      throw new Error('La imagen supera el tamaÃ±o mÃ¡ximo permitido de ' + CONFIG.MAX_IMAGE_SIZE_MB + ' MB.');
-    }
   }
 
   if (normalizeText_(payload.course) === 'musica' && !String(payload.instrument || '').trim()) {
@@ -281,7 +264,7 @@ function savePhoto_(photo, studentName) {
   };
 }
 
-function buildRow_(payload, fileMeta) {
+function buildRow_(payload) {
   const now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
   const row = new Array(34).fill('');
 
@@ -298,7 +281,7 @@ function buildRow_(payload, fileMeta) {
   row[5] = payload.studentCity || '';
   row[6] = payload.studentAddress || '';
   row[7] = normalizeEmail_(payload.studentEmail || '');
-  row[8] = fileMeta && fileMeta.url ? fileMeta.url : '';
+  row[8] = '';
   // J-Z
   row[9] = payload.phone || '';
   row[10] = payload.mobile || '';
@@ -423,7 +406,6 @@ function getSafeExtension_(fileName, mimeType) {
 function assertConfig_() {
   if (!CONFIG.SHEET_ID) throw new Error('Falta configurar el ID del archivo de Google Sheets.');
   if (!CONFIG.SHEET_NAME) throw new Error('Falta configurar el nombre de la pestaÃ±a de Google Sheets.');
-  if (!CONFIG.DRIVE_FOLDER_ID) throw new Error('Falta configurar la carpeta de Google Drive para las fotos.');
 }
 
 function jsonResponse_(obj) {
