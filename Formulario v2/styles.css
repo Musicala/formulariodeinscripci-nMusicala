@@ -967,6 +967,46 @@ input[type="file"]::file-selector-button:hover {
 }
 
 /* ═══════════════════════════════════════
+   PROMO REFERIDOS
+   ═══════════════════════════════════════ */
+.referral-promo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 60%, #f97316 100%);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 24px rgba(168,85,247,.35);
+  animation: bannerFadeIn .4s ease;
+}
+
+.referral-promo-icon {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.2));
+}
+
+.referral-promo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #fff;
+}
+
+.referral-promo-text strong {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+
+.referral-promo-text span {
+  font-size: .85rem;
+  opacity: .92;
+  line-height: 1.4;
+}
+
+/* ═══════════════════════════════════════
    BANNER DE CURSO SELECCIONADO
    ═══════════════════════════════════════ */
 .course-banner-wrap {
