@@ -4,6 +4,47 @@
   duplicateEmailMessage: 'Este correo ya se encuentra registrado en Musicala. Si es un familiar, usa otro correo. Si necesitas actualizar información, por favor comunícate con administración.'
 };
 
+const firebaseConfig = {
+  apiKey: "AIzaSyA12_rlUjYM2z4aFG4bf43Wf0tSNTxC0Vg",
+  authDomain: "estudiantes-musicala.firebaseapp.com",
+  projectId: "estudiantes-musicala",
+  storageBucket: "estudiantes-musicala.firebasestorage.app",
+  messagingSenderId: "342934326940",
+  appId: "1:342934326940:web:a75cc4634569c5a4a82759"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+async function uploadPhotoToStorage(photoFile, photoBase64, studentName) {
+  const storage = firebase.storage();
+  const ext = photoFile.name.split('.').pop().toLowerCase() || 'jpg';
+  const cleanName = (studentName || 'estudiante')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
+  const timestamp = Date.now();
+  const path = `fotos-estudiantes/${cleanName}-${timestamp}.${ext}`;
+
+  const byteString = atob(photoBase64);
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+  const blob = new Blob([ab], { type: photoFile.type });
+
+  const snapshot = await storage.ref(path).put(blob);
+  return await snapshot.ref.getDownloadURL();
+}
+
+async function saveToFirestore(payload, photoUrl) {
+  const docData = { ...payload };
+  delete docData.photo;
+  if (photoUrl) docData.photoUrl = photoUrl;
+  docData.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+  const docRef = await db.collection('estudiantes').add(docData);
+  console.log('Firestore guardado, ID:', docRef.id);
+  return docRef.id;
+}
+
 const form = document.getElementById('enrollmentForm');
 const birthDateInput = document.getElementById('birthDate');
 const ageInput = document.getElementById('age');
@@ -22,6 +63,16 @@ const progressFill = document.getElementById('progressFill');
 const studentEmailInput = document.getElementById('studentEmail');
 const samePhoneAsMobile = document.getElementById('samePhoneAsMobile');
 const guardianUseStudentData = document.getElementById('guardianUseStudentData');
+const courseBannerWrap = document.getElementById('courseBannerWrap');
+const courseBannerImg = document.getElementById('courseBannerImg');
+
+const COURSE_BANNERS = {
+  'Baile':                './assets/baile.png',
+  'Música':               './assets/musica.png',
+  'Teatro':               './assets/Teatro.png',
+  'Artes manuales':       './assets/artes.png',
+  'Talleres vacacionales':'./assets/Vacacionales.png',
+};
 
 function showToast(message, type = 'success') {
   toast.textContent = message;
@@ -38,6 +89,19 @@ function calculateAge(dateStr) {
   const md = today.getMonth() - birth.getMonth();
   if (md < 0 || (md === 0 && today.getDate() < birth.getDate())) age--;
   return Number.isFinite(age) && age >= 0 ? age : '';
+}
+
+function updateCourseBanner() {
+  const v = courseSelect.value;
+  const src = COURSE_BANNERS[v];
+  if (src) {
+    courseBannerImg.src = src;
+    courseBannerImg.alt = v;
+    courseBannerWrap.classList.remove('hidden');
+  } else {
+    courseBannerWrap.classList.add('hidden');
+    courseBannerImg.src = '';
+  }
 }
 
 function toggleCourseBlocks() {
@@ -393,17 +457,36 @@ async function submitForm(event) {
       return;
     }
 
-    const response = await fetch(CONFIG.apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
+    // Subir foto a Firebase Storage (si existe) y guardar URL en Firestore
+    let photoUrl = '';
+    if (photoFile && photoBase64) {
+      try {
+        photoUrl = await uploadPhotoToStorage(photoFile, photoBase64, payload.studentName);
+      } catch (storageErr) {
+        console.warn('Firebase Storage:', storageErr);
+      }
+    }
 
+    // Guardar en Firestore (datos + URL de foto) y en Sheets (solo datos, sin foto)
+    const sheetsPayload = { ...payload };
+    delete sheetsPayload.photo;
+
+    const [response, firestoreId] = await Promise.all([
+      fetch(CONFIG.apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(sheetsPayload)
+      }),
+      saveToFirestore(payload, photoUrl).catch((err) => { console.warn('Firestore:', err); return null; })
+    ]);
+
+    console.log('Firestore doc ID:', firestoreId);
     const data = await response.json();
     if (!response.ok || !data.ok) throw new Error(data.message || 'No fue posible guardar el registro.');
 
     form.reset();
     toggleCourseBlocks();
+    updateCourseBanner();
     toggleTermsReason();
     syncStudentFixedPhoneWithMobile();
     syncGuardianFromStudent();
@@ -438,6 +521,7 @@ birthDateInput.addEventListener('input', () => {
 
 courseSelect.addEventListener('change', () => {
   toggleCourseBlocks();
+  updateCourseBanner();
   updateProgress();
 });
 
@@ -496,6 +580,7 @@ closeSuccessBtn.addEventListener('click', () => {
 });
 
 toggleCourseBlocks();
+updateCourseBanner();
 toggleTermsReason();
 syncStudentFixedPhoneWithMobile();
 syncGuardianFromStudent();
