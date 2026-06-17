@@ -256,8 +256,13 @@ function combineDocument(typeId, numberId, label) {
     setFieldError(typeEl, `Selecciona el tipo de documento (${label}).`);
     return null;
   }
-  if (!num || !/^\d+$/.test(num)) {
-    setFieldError(numEl, `El número de documento (${label}) debe contener solo números.`);
+  const alphanumericTypes = ['RC', 'PAS'];
+  const isAlpha = alphanumericTypes.includes(type);
+  if (!num || (isAlpha ? !/^[A-Za-z0-9\-]+$/.test(num) : !/^\d+$/.test(num))) {
+    const msg = isAlpha
+      ? `El número de documento (${label}) contiene caracteres no válidos.`
+      : `El número de documento (${label}) debe contener solo números.`;
+    setFieldError(numEl, msg);
     return null;
   }
   return `${type}${num}`;
