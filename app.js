@@ -54,6 +54,14 @@ const danceBlock = document.getElementById('danceBlock');
 const theaterBlock = document.getElementById('theaterBlock');
 const artsBlock = document.getElementById('artsBlock');
 const termsReasonWrap = document.getElementById('termsReasonWrap');
+const healthConditionWrap = document.getElementById('healthConditionWrap');
+const guardianDocumentRequirement = document.getElementById('guardianDocumentRequirement');
+const imageAuthorizationByStudent = document.getElementById('imageAuthorizationByStudent');
+const imageAuthorizationByGuardian = document.getElementById('imageAuthorizationByGuardian');
+const minorImageAuthorizationHint = document.getElementById('minorImageAuthorizationHint');
+const imageGuardianAuthorizationWrap = document.getElementById('imageGuardianAuthorizationWrap');
+const imageAuthorizationDifferentGuardian = document.getElementById('imageAuthorizationDifferentGuardian');
+const differentImageGuardianFields = document.getElementById('differentImageGuardianFields');
 const submitBtn = document.getElementById('submitBtn');
 const toast = document.getElementById('toast');
 const successModal = document.getElementById('successModal');
@@ -114,7 +122,65 @@ function toggleCourseBlocks() {
 
 function toggleTermsReason() {
   const a = form.querySelector('input[name="termsAgreement"]:checked')?.value;
-  termsReasonWrap.classList.toggle('hidden', a !== 'No');
+  const disagrees = a === 'No';
+  termsReasonWrap.classList.toggle('hidden', !disagrees);
+  form.termsReason.required = disagrees;
+  if (!disagrees) form.termsReason.value = '';
+}
+
+function isMinor() {
+  const age = calculateAge(birthDateInput.value);
+  return age !== '' && age < 18;
+}
+
+function updateGuardianDocumentRequirement() {
+  const minor = isMinor();
+  const authorizationBy = form.querySelector('input[name="imageUseAuthorizationBy"]:checked')?.value;
+  const usesRegisteredGuardian = authorizationBy === 'Acudiente' && !imageAuthorizationDifferentGuardian.checked;
+  const guardianDocumentIsRequired = minor || usesRegisteredGuardian;
+  const guardianDocumentType = form.guardianDocumentType;
+  const guardianDocumentNumber = form.guardianDocumentNumber;
+
+  guardianDocumentType.required = guardianDocumentIsRequired;
+  guardianDocumentNumber.required = guardianDocumentIsRequired;
+  guardianDocumentRequirement.textContent = guardianDocumentIsRequired ? '*' : '(opcional para mayores de edad)';
+}
+
+function updateAgeDependentFields() {
+  const minor = isMinor();
+
+  imageAuthorizationByStudent.disabled = minor;
+  minorImageAuthorizationHint.classList.toggle('hidden', !minor);
+  if (minor) imageAuthorizationByGuardian.checked = true;
+  updateGuardianDocumentRequirement();
+  toggleImageGuardianAuthorization();
+}
+
+function toggleHealthCondition() {
+  const answer = form.querySelector('input[name="healthConditionAnswer"]:checked')?.value;
+  const hasCondition = answer === 'Sí';
+  healthConditionWrap.classList.toggle('hidden', !hasCondition);
+  form.healthCondition.required = hasCondition;
+  if (!hasCondition) form.healthCondition.value = '';
+}
+
+function toggleImageGuardianAuthorization() {
+  const authorizationBy = form.querySelector('input[name="imageUseAuthorizationBy"]:checked')?.value;
+  const usesGuardian = authorizationBy === 'Acudiente';
+  const differentGuardian = usesGuardian && imageAuthorizationDifferentGuardian.checked;
+
+  imageGuardianAuthorizationWrap.classList.toggle('hidden', !usesGuardian);
+  differentImageGuardianFields.classList.toggle('hidden', !differentGuardian);
+  form.imageGuardianName.required = differentGuardian;
+  form.imageGuardianDocumentType.required = differentGuardian;
+  form.imageGuardianDocumentNumber.required = differentGuardian;
+
+  if (!differentGuardian) {
+    form.imageGuardianName.value = '';
+    form.imageGuardianDocumentType.value = '';
+    form.imageGuardianDocumentNumber.value = '';
+  }
+  updateGuardianDocumentRequirement();
 }
 
 function getCheckedValues(name) {
@@ -246,12 +312,13 @@ function validateMobileField(value, label) {
   return '';
 }
 
-function combineDocument(typeId, numberId, label) {
+function combineDocument(typeId, numberId, label, required = true) {
   const typeEl = document.getElementById(typeId);
   const numEl = document.getElementById(numberId);
   const type = String(typeEl?.value || '').trim();
   const num = String(numEl?.value || '').trim();
 
+  if (!required && !type && !num) return '';
   if (!type) {
     setFieldError(typeEl, `Selecciona el tipo de documento (${label}).`);
     return null;
@@ -324,9 +391,23 @@ function buildPayload(photoBase64, photoFile) {
   if (other) instruments.push(`Otro: ${other}`);
 
   const studentDocument = combineDocument('studentDocumentType', 'studentDocumentNumber', 'estudiante');
-  const guardianDocument = combineDocument('guardianDocumentType', 'guardianDocumentNumber', 'acudiente');
+  const guardianDocument = combineDocument('guardianDocumentType', 'guardianDocumentNumber', 'acudiente', isMinor());
+  const authorizationByType = form.querySelector('input[name="imageUseAuthorizationBy"]:checked')?.value || '';
+  let imageUseAuthorizationBy = authorizationByType;
+  if (authorizationByType === 'Acudiente') {
+    const usesDifferentGuardian = imageAuthorizationDifferentGuardian.checked;
+    const authorizationGuardianDocument = usesDifferentGuardian
+      ? combineDocument('imageGuardianDocumentType', 'imageGuardianDocumentNumber', 'acudiente que autoriza')
+      : guardianDocument;
+    const authorizationGuardianName = usesDifferentGuardian
+      ? form.imageGuardianName.value.trim()
+      : form.guardianName.value.trim();
+    if (!authorizationGuardianName || !authorizationGuardianDocument) return null;
+    imageUseAuthorizationBy = `Acudiente: ${authorizationGuardianName} — ${authorizationGuardianDocument}`;
+  }
 
-  if (!studentDocument || !guardianDocument) return null;
+  if (!studentDocument || guardianDocument === null) return null;
+  const healthAnswer = form.querySelector('input[name="healthConditionAnswer"]:checked')?.value || '';
 
   return {
     studentName: form.studentName.value.trim(),
@@ -353,20 +434,98 @@ function buildPayload(photoBase64, photoFile) {
     guardianPhone: normalizeDigits(form.guardianPhone.value),
     guardianAddress: form.guardianAddress.value.trim(),
     relationship: form.relationship.value.trim(),
-    healthCondition: form.healthCondition.value.trim(),
+    healthCondition: healthAnswer === 'Sí' ? `Sí: ${form.healthCondition.value.trim()}` : healthAnswer,
     termsAgreement: form.querySelector('input[name="termsAgreement"]:checked')?.value || '',
     termsReason: form.termsReason.value.trim(),
     imageUseAuthorization: form.querySelector('input[name="imageUseAuthorization"]:checked')?.value || '',
-    imageUseAuthorizationBy: form.querySelector('input[name="imageUseAuthorizationBy"]:checked')?.value || '',
+    imageUseAuthorizationBy,
     referredName: form.referredName.value.trim(),
     referredMobile: normalizeDigits(form.referredMobile.value),
     photo: photoFile ? { name: photoFile.name, mimeType: photoFile.type, base64: photoBase64 } : null
   };
 }
 
+function buildTermsRejectionPayload() {
+  const studentDocument = `${form.studentDocumentType?.value || ''}${form.studentDocumentNumber?.value || ''}`.trim();
+  const guardianDocument = `${form.guardianDocumentType?.value || ''}${form.guardianDocumentNumber?.value || ''}`.trim();
+  const healthAnswer = form.querySelector('input[name="healthConditionAnswer"]:checked')?.value || '';
+
+  return {
+    studentName: form.studentName?.value.trim() || '',
+    studentDocument,
+    birthDate: form.birthDate?.value || '',
+    age: form.age?.value || '',
+    studentCity: form.studentCity?.value.trim() || '',
+    studentAddress: form.studentAddress?.value.trim() || '',
+    studentEmail: form.studentEmail?.value.trim().toLowerCase() || '',
+    phone: normalizeDigits(form.phone?.value || ''),
+    mobile: normalizeDigits(form.mobile?.value || ''),
+    course: form.course?.value || '',
+    selectedPlan: form.selectedPlan?.value || '',
+    modality: form.modality?.value || '',
+    eps: form.eps?.value.trim() || '',
+    rh: form.rh?.value.trim() || '',
+    guardianName: form.guardianName?.value.trim() || '',
+    guardianDocument,
+    guardianMobile: normalizeDigits(form.guardianMobile?.value || ''),
+    guardianPhone: normalizeDigits(form.guardianPhone?.value || ''),
+    guardianAddress: form.guardianAddress?.value.trim() || '',
+    relationship: form.relationship?.value.trim() || '',
+    healthCondition: healthAnswer === 'Sí' ? `Sí: ${form.healthCondition?.value.trim() || ''}` : healthAnswer,
+    termsAgreement: 'No',
+    termsReason: form.termsReason?.value.trim() || '',
+    imageUseAuthorization: form.querySelector('input[name="imageUseAuthorization"]:checked')?.value || '',
+    imageUseAuthorizationBy: form.querySelector('input[name="imageUseAuthorizationBy"]:checked')?.value || '',
+    referredName: form.referredName?.value.trim() || '',
+    referredMobile: normalizeDigits(form.referredMobile?.value || '')
+  };
+}
+
+async function notifyTermsRejection() {
+  const reason = form.termsReason.value.trim();
+  if (!reason) {
+    setFieldError(form.termsReason, 'Cuéntanos por qué no estás de acuerdo.');
+    showToast('Para enviarnos tu comentario, escribe por qué no estás de acuerdo.', 'error');
+    return;
+  }
+
+  if (!CONFIG.apiUrl || CONFIG.apiUrl.includes('PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE')) {
+    showToast('Falta configurar la URL del Apps Script en app.js.', 'error');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span>Enviando comentario...</span>';
+
+  try {
+    const response = await fetch(CONFIG.apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(buildTermsRejectionPayload())
+    });
+    const data = await response.json();
+    if (data.code !== 'TERMS_REJECTED' && (!response.ok || !data.ok)) {
+      throw new Error(data.message || 'No fue posible enviar el comentario.');
+    }
+    setFieldError(form.termsReason, 'Recibimos tu comentario. Para inscribirte en Musicala debes aceptar los términos y condiciones.');
+    showToast(data.message || 'Gracias. Recibimos tu comentario, pero no podemos completar la inscripción sin aceptar los términos.', 'error');
+  } catch (error) {
+    showToast(error?.message || 'No fue posible enviar el comentario.', 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<span>Enviar inscripción</span>';
+  }
+}
+
 async function submitForm(event) {
   event.preventDefault();
   clearErrors();
+
+  const termsAgreement = form.querySelector('input[name="termsAgreement"]:checked')?.value;
+  if (termsAgreement === 'No') {
+    await notifyTermsRejection();
+    return;
+  }
 
   if (!form.checkValidity()) {
     [...form.querySelectorAll(':invalid')].forEach((field) => {
@@ -493,6 +652,9 @@ async function submitForm(event) {
     toggleCourseBlocks();
     updateCourseBanner();
     toggleTermsReason();
+    toggleHealthCondition();
+    updateAgeDependentFields();
+    toggleImageGuardianAuthorization();
     syncStudentFixedPhoneWithMobile();
     syncGuardianFromStudent();
     ageInput.value = '';
@@ -500,9 +662,8 @@ async function submitForm(event) {
 
     successModal.classList.remove('hidden');
     successModal.setAttribute('aria-hidden', 'false');
-
-    const savedIn = data.sheetName && data.savedRow ? ` Guardado en "${data.sheetName}" (fila ${data.savedRow}).` : '';
-    showToast((data.message || 'Inscripción guardada correctamente.') + savedIn, 'success');
+    const modalEmail = document.getElementById('successEmail');
+    if (modalEmail) modalEmail.textContent = payload.studentEmail || 'tu correo';
   } catch (error) {
     const message = String(error?.message || '');
     if (/duplicado|duplicate|registrado/i.test(message)) {
@@ -521,6 +682,7 @@ birthDateInput.max = today.toISOString().slice(0, 10);
 
 birthDateInput.addEventListener('input', () => {
   ageInput.value = calculateAge(birthDateInput.value);
+  updateAgeDependentFields();
   updateProgress();
 });
 
@@ -536,6 +698,25 @@ form.querySelectorAll('input[name="termsAgreement"]').forEach((r) =>
     updateProgress();
   })
 );
+
+form.querySelectorAll('input[name="healthConditionAnswer"]').forEach((r) =>
+  r.addEventListener('change', () => {
+    toggleHealthCondition();
+    updateProgress();
+  })
+);
+
+form.querySelectorAll('input[name="imageUseAuthorizationBy"]').forEach((r) =>
+  r.addEventListener('change', () => {
+    toggleImageGuardianAuthorization();
+    updateProgress();
+  })
+);
+
+imageAuthorizationDifferentGuardian.addEventListener('change', () => {
+  toggleImageGuardianAuthorization();
+  updateProgress();
+});
 
 form.addEventListener('input', updateProgress);
 form.addEventListener('change', updateProgress);
@@ -587,6 +768,9 @@ closeSuccessBtn.addEventListener('click', () => {
 toggleCourseBlocks();
 updateCourseBanner();
 toggleTermsReason();
+toggleHealthCondition();
+updateAgeDependentFields();
+toggleImageGuardianAuthorization();
 syncStudentFixedPhoneWithMobile();
 syncGuardianFromStudent();
 updateProgress();

@@ -301,7 +301,7 @@
               <div class="field"><label for="rh">RH *</label><input type="text" id="rh" name="rh" placeholder="Ej: O+" required /></div>
               <div class="field"><label for="guardianName">Nombre completo (acudiente) *</label><input type="text" id="guardianName" name="guardianName" required /></div>
               <div class="field">
-                <label for="guardianDocumentType">Tipo y n&uacute;mero de identificaci&oacute;n (acudiente) *</label>
+                <label id="guardianDocumentLabel" for="guardianDocumentType">Tipo y n&uacute;mero de identificaci&oacute;n (acudiente) <span id="guardianDocumentRequirement">*</span></label>
                 <div class="doc-row">
                   <select id="guardianDocumentType" name="guardianDocumentType" required>
                     <option value="">Tipo</option>
@@ -319,8 +319,15 @@
               <div class="field"><label for="guardianAddress">Direcci&oacute;n (acudiente) *</label><input type="text" id="guardianAddress" name="guardianAddress" required /></div>
               <div class="field"><label for="relationship">Parentesco *</label><input type="text" id="relationship" name="relationship" placeholder="Ej: Madre, Padre, Tutor" required /></div>
               <div class="field field-full">
-                <label for="healthCondition">&iquest;Presentas alguna condici&oacute;n y/o enfermedad relevante para tus clases&iexcl; *</label>
-                <textarea id="healthCondition" name="healthCondition" rows="4" required></textarea>
+                <label>&iquest;Presentas alguna condici&oacute;n y/o enfermedad relevante para tus clases? *</label>
+                <div class="inline-options">
+                  <label><input type="radio" name="healthConditionAnswer" value="S&iacute;" required> S&iacute;</label>
+                  <label><input type="radio" name="healthConditionAnswer" value="No" required> No</label>
+                </div>
+              </div>
+              <div id="healthConditionWrap" class="field field-full hidden">
+                <label for="healthCondition">Describe la condici&oacute;n y/o enfermedad *</label>
+                <textarea id="healthCondition" name="healthCondition" rows="4"></textarea>
               </div>
             </div>
           </section>
@@ -450,8 +457,38 @@
               <div class="field">
                 <label>&iquest;Qui&eacute;n otorga esta autorizaci&oacute;n? *</label>
                 <div class="inline-options">
-                  <label><input type="radio" name="imageUseAuthorizationBy" value="Estudiante" required> Estudiante</label>
-                  <label><input type="radio" name="imageUseAuthorizationBy" value="Acudiente" required> Acudiente</label>
+                  <label><input id="imageAuthorizationByStudent" type="radio" name="imageUseAuthorizationBy" value="Estudiante" required> Estudiante</label>
+                  <label><input id="imageAuthorizationByGuardian" type="radio" name="imageUseAuthorizationBy" value="Acudiente" required> Acudiente</label>
+                </div>
+                <small id="minorImageAuthorizationHint" class="hint hidden">Para menores de edad, esta autorizaci&oacute;n debe otorgarla el acudiente.</small>
+              </div>
+              <div id="imageGuardianAuthorizationWrap" class="field field-full hidden">
+                <label class="inline-check">
+                  <input type="checkbox" id="imageAuthorizationDifferentGuardian">
+                  La autorizaci&oacute;n la otorga un acudiente diferente al registrado arriba
+                </label>
+                <small id="imageGuardianSameDataHint" class="hint">Se usar&aacute;n autom&aacute;ticamente el nombre y documento del acudiente registrado.</small>
+              </div>
+              <div id="differentImageGuardianFields" class="field field-full hidden">
+                <div class="grid two">
+                  <div class="field">
+                    <label for="imageGuardianName">Nombre del acudiente que autoriza *</label>
+                    <input type="text" id="imageGuardianName" name="imageGuardianName">
+                  </div>
+                  <div class="field">
+                    <label for="imageGuardianDocumentType">Tipo y n&uacute;mero de documento *</label>
+                    <div class="doc-row">
+                      <select id="imageGuardianDocumentType" name="imageGuardianDocumentType">
+                        <option value="">Tipo</option>
+                        <option value="CC">CC</option>
+                        <option value="TI">TI</option>
+                        <option value="CE">CE</option>
+                        <option value="PAS">PAS</option>
+                        <option value="PPT">PPT</option>
+                      </select>
+                      <input type="text" id="imageGuardianDocumentNumber" name="imageGuardianDocumentNumber" placeholder="N&uacute;mero">
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -512,7 +549,10 @@
         </svg>
       </div>
       <h3>&iexcl;Bienvenido a la familia Musicala!</h3>
-      <p>Completaste la inscripci&oacute;n correctamente. Si tienes alguna pregunta, no dudes en contactarnos. Pronto recibir&aacute;s confirmaci&oacute;n.</p>
+      <p>
+        Tu inscripci&oacute;n fue recibida correctamente. Enviaremos la confirmaci&oacute;n y los siguientes pasos a
+        <strong id="successEmail">tu correo</strong>.
+      </p>
       <button id="closeSuccessBtn" type="button" class="btn-secondary">Cerrar</button>
     </div>
   </div>
