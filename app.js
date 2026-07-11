@@ -1,5 +1,4 @@
 ﻿const CONFIG = {
-  apiUrl: 'https://script.google.com/macros/s/AKfycbw6TvGcSD7k7SWh0ve3CSsrye1NiTDdvVya4S8HxQuJiQd2V_rWAAZIhJi8Sd2nplR_/exec',
   maxImageSizeMB: 3,
   duplicateEmailMessage: 'Este correo ya se encuentra registrado en Musicala. Si es un familiar, usa otro correo. Si necesitas actualizar información, por favor comunícate con administración.'
 };
@@ -29,6 +28,9 @@ if (APP_CHECK_SITE_KEY && firebase.appCheck) {
 }
 
 const db = firebase.firestore();
+const functions = firebase.app().functions('us-central1');
+const checkStudentRegistrationDuplicate = functions.httpsCallable('checkStudentRegistrationDuplicate');
+const createTermsRejectedEvent = functions.httpsCallable('createTermsRejectedEvent');
 
 // Genera un UUID v4 estable de negocio (contactId). Usa crypto.randomUUID cuando
 // está disponible y cae a un generador equivalente en navegadores antiguos.
@@ -143,7 +145,6 @@ const musicBlock = document.getElementById('musicBlock');
 const danceBlock = document.getElementById('danceBlock');
 const theaterBlock = document.getElementById('theaterBlock');
 const artsBlock = document.getElementById('artsBlock');
-const termsReasonWrap = document.getElementById('termsReasonWrap');
 const healthConditionWrap = document.getElementById('healthConditionWrap');
 const guardianDocumentRequirement = document.getElementById('guardianDocumentRequirement');
 const imageAuthorizationByStudent = document.getElementById('imageAuthorizationByStudent');
@@ -208,14 +209,6 @@ function toggleCourseBlocks() {
   danceBlock.classList.toggle('hidden', v !== 'Baile');
   theaterBlock.classList.toggle('hidden', v !== 'Teatro');
   artsBlock.classList.toggle('hidden', v !== 'Artes manuales');
-}
-
-function toggleTermsReason() {
-  const a = form.querySelector('input[name="termsAgreement"]:checked')?.value;
-  const disagrees = a === 'No';
-  termsReasonWrap.classList.toggle('hidden', !disagrees);
-  form.termsReason.required = disagrees;
-  if (!disagrees) form.termsReason.value = '';
 }
 
 function isMinor() {
@@ -425,19 +418,49 @@ function combineDocument(typeId, numberId, label, required = true) {
   return `${type}${num}`;
 }
 
-const emailCheckCache = { value: '', exists: false };
-async function checkEmailExistsRemote(email) {
+const duplicateCheckCache = { key: '', result: null };
+async function checkDuplicateWithFirebase(email, documentType, documentNumber) {
   const normalized = String(email || '').trim().toLowerCase();
-  if (!normalized) return false;
-  if (emailCheckCache.value === normalized) return emailCheckCache.exists;
+  const safeType = String(documentType || '').trim().toUpperCase();
+  const safeNumber = String(documentNumber || '').trim();
+  if (!normalized || !safeType || !safeNumber) return null;
 
-  const url = `${CONFIG.apiUrl}?action=checkEmail&email=${encodeURIComponent(normalized)}`;
-  const response = await fetch(url, { method: 'GET' });
-  const data = await response.json();
-  const exists = !!data.exists;
-  emailCheckCache.value = normalized;
-  emailCheckCache.exists = exists;
-  return exists;
+  const key = `${normalized}|${safeType}|${safeNumber.toUpperCase()}`;
+  if (duplicateCheckCache.key === key && duplicateCheckCache.result) {
+    return duplicateCheckCache.result;
+  }
+
+  const response = await checkStudentRegistrationDuplicate({
+    email: normalized,
+    documentType: safeType,
+    documentNumber: safeNumber
+  });
+  const result = response?.data || {};
+  duplicateCheckCache.key = key;
+  duplicateCheckCache.result = result;
+  return result;
+}
+
+async function canContinueAfterDuplicateCheck(email, documentType, documentNumber) {
+  try {
+    const result = await checkDuplicateWithFirebase(email, documentType, documentNumber);
+    if (!result) return true;
+    if (result.duplicate) {
+      const message = result.message || CONFIG.duplicateEmailMessage;
+      setFieldError(form.studentEmail, message);
+      showToast(message, 'error');
+      return false;
+    }
+    return result.canContinue === true;
+  } catch (_error) {
+    const proceed = window.confirm(
+      'No pudimos verificar si la inscripción ya existe. Puedes cancelar e intentarlo más tarde, o continuar de forma controlada; el equipo revisará cualquier posible duplicado.'
+    );
+    if (!proceed) {
+      showToast('La inscripción se detuvo porque no fue posible verificar duplicados.', 'error');
+    }
+    return proceed;
+  }
 }
 
 function updateProgress() {
@@ -526,7 +549,7 @@ function buildPayload(photoBase64, photoFile) {
     relationship: form.relationship.value.trim(),
     healthCondition: healthAnswer === 'Sí' ? `Sí: ${form.healthCondition.value.trim()}` : healthAnswer,
     termsAgreement: form.querySelector('input[name="termsAgreement"]:checked')?.value || '',
-    termsReason: form.termsReason.value.trim(),
+    termsReason: '',
     imageUseAuthorization: form.querySelector('input[name="imageUseAuthorization"]:checked')?.value || '',
     imageUseAuthorizationBy,
     referredName: form.referredName.value.trim(),
@@ -535,72 +558,18 @@ function buildPayload(photoBase64, photoFile) {
   };
 }
 
-function buildTermsRejectionPayload() {
-  const studentDocument = `${form.studentDocumentType?.value || ''}${form.studentDocumentNumber?.value || ''}`.trim();
-  const guardianDocument = `${form.guardianDocumentType?.value || ''}${form.guardianDocumentNumber?.value || ''}`.trim();
-  const healthAnswer = form.querySelector('input[name="healthConditionAnswer"]:checked')?.value || '';
-
-  return {
-    studentName: form.studentName?.value.trim() || '',
-    studentDocument,
-    birthDate: form.birthDate?.value || '',
-    age: form.age?.value || '',
-    studentCity: form.studentCity?.value.trim() || '',
-    studentAddress: form.studentAddress?.value.trim() || '',
-    studentEmail: form.studentEmail?.value.trim().toLowerCase() || '',
-    phone: normalizeDigits(form.phone?.value || ''),
-    mobile: normalizeDigits(form.mobile?.value || ''),
-    course: form.course?.value || '',
-    selectedPlan: form.selectedPlan?.value || '',
-    modality: form.modality?.value || '',
-    eps: form.eps?.value.trim() || '',
-    rh: form.rh?.value.trim() || '',
-    guardianName: form.guardianName?.value.trim() || '',
-    guardianDocument,
-    guardianMobile: normalizeDigits(form.guardianMobile?.value || ''),
-    guardianPhone: normalizeDigits(form.guardianPhone?.value || ''),
-    guardianAddress: form.guardianAddress?.value.trim() || '',
-    relationship: form.relationship?.value.trim() || '',
-    healthCondition: healthAnswer === 'Sí' ? `Sí: ${form.healthCondition?.value.trim() || ''}` : healthAnswer,
-    termsAgreement: 'No',
-    termsReason: form.termsReason?.value.trim() || '',
-    imageUseAuthorization: form.querySelector('input[name="imageUseAuthorization"]:checked')?.value || '',
-    imageUseAuthorizationBy: form.querySelector('input[name="imageUseAuthorizationBy"]:checked')?.value || '',
-    referredName: form.referredName?.value.trim() || '',
-    referredMobile: normalizeDigits(form.referredMobile?.value || '')
-  };
-}
-
 async function notifyTermsRejection() {
-  const reason = form.termsReason.value.trim();
-  if (!reason) {
-    setFieldError(form.termsReason, 'Cuéntanos por qué no estás de acuerdo.');
-    showToast('Para enviarnos tu comentario, escribe por qué no estás de acuerdo.', 'error');
-    return;
-  }
-
-  if (!CONFIG.apiUrl || CONFIG.apiUrl.includes('PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE')) {
-    showToast('Falta configurar la URL del Apps Script en app.js.', 'error');
-    return;
-  }
-
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span>Enviando comentario...</span>';
+  submitBtn.innerHTML = '<span>Registrando decisión...</span>';
 
   try {
-    const response = await fetch(CONFIG.apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(buildTermsRejectionPayload())
+    await createTermsRejectedEvent({
+      email: form.studentEmail?.value.trim().toLowerCase() || '',
+      studentName: form.studentName?.value.trim() || ''
     });
-    const data = await response.json();
-    if (data.code !== 'TERMS_REJECTED' && (!response.ok || !data.ok)) {
-      throw new Error(data.message || 'No fue posible enviar el comentario.');
-    }
-    setFieldError(form.termsReason, 'Recibimos tu comentario. Para inscribirte en Musicala debes aceptar los términos y condiciones.');
-    showToast(data.message || 'Gracias. Recibimos tu comentario, pero no podemos completar la inscripción sin aceptar los términos.', 'error');
+    showToast('Registramos que no aceptaste los términos. Para inscribirte en Musicala debes aceptarlos.', 'error');
   } catch (error) {
-    showToast(error?.message || 'No fue posible enviar el comentario.', 'error');
+    showToast(error?.message || 'No fue posible registrar la decisión.', 'error');
   } finally {
     submitBtn.disabled = false;
     submitBtn.innerHTML = '<span>Enviar inscripción</span>';
@@ -678,25 +647,18 @@ async function submitForm(event) {
   }
 
   const emailForCheck = (form.studentEmail.value || '').trim().toLowerCase();
-  if (emailForCheck) {
-    const exists = await checkEmailExistsRemote(emailForCheck);
-    if (exists) {
-      setFieldError(form.studentEmail, CONFIG.duplicateEmailMessage);
-      showToast(CONFIG.duplicateEmailMessage, 'error');
-      return;
-    }
-  }
+  const canContinue = await canContinueAfterDuplicateCheck(
+    emailForCheck,
+    form.studentDocumentType.value,
+    form.studentDocumentNumber.value
+  );
+  if (!canContinue) return;
 
   const photoFile = form.studentPhoto.files[0];
   const photoError = validatePhoto(photoFile);
   if (photoError) {
     setFieldError(form.studentPhoto, photoError);
     showToast(photoError, 'error');
-    return;
-  }
-
-  if (!CONFIG.apiUrl || CONFIG.apiUrl.includes('PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE')) {
-    showToast('Falta configurar la URL del Apps Script en app.js.', 'error');
     return;
   }
 
@@ -711,7 +673,7 @@ async function submitForm(event) {
       return;
     }
 
-    // Firebase debe confirmar primero. Apps Script se ejecuta únicamente después.
+    // Firebase confirma la inscripción; los efectos secundarios son backend.
     if (!pendingFirebaseSubmission) {
       pendingFirebaseSubmission = {
         id: db.collection('estudiantes').doc().id,
@@ -730,12 +692,8 @@ async function submitForm(event) {
       );
     }
 
-    /*
-      La inscripción se escribe UNA sola vez. Si Firestore ya confirmó y lo
-      que falló fue Apps Script, el reintento salta directo al envío a Apps
-      Script: las reglas públicas no permiten actualizar estudiantes ya
-      creados, y este flujo tampoco lo intenta.
-    */
+    // La inscripción se escribe UNA sola vez. Los correos y la copia
+    // transitoria en Sheets se ejecutan en backend y nunca bloquean el éxito.
     if (!pendingFirebaseSubmission.firestoreSaved) {
       await saveToFirestore(
         payload,
@@ -745,30 +703,10 @@ async function submitForm(event) {
       );
       pendingFirebaseSubmission.firestoreSaved = true;
     }
-    const firestoreId = pendingFirebaseSubmission.id;
-
-    submitBtn.innerHTML = '<span>Enviando a Apps Script...</span>';
-    const sheetsPayload = { ...payload };
-    delete sheetsPayload.photo;
-    // firebaseDocumentId se mantiene por compatibilidad con Apps Script,
-    // pero equivale exactamente al studentId canónico.
-    sheetsPayload.firebaseDocumentId = firestoreId;
-    sheetsPayload.studentId = firestoreId;
-    sheetsPayload.contactId = pendingFirebaseSubmission.contactId;
-
-    const response = await fetch(CONFIG.apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(sheetsPayload)
-    });
-    const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(data.message || 'No fue posible guardar el registro.');
-
     pendingFirebaseSubmission = null;
     form.reset();
     toggleCourseBlocks();
     updateCourseBanner();
-    toggleTermsReason();
     toggleHealthCondition();
     updateAgeDependentFields();
     toggleImageGuardianAuthorization();
@@ -811,7 +749,6 @@ courseSelect.addEventListener('change', () => {
 
 form.querySelectorAll('input[name="termsAgreement"]').forEach((r) =>
   r.addEventListener('change', () => {
-    toggleTermsReason();
     updateProgress();
   })
 );
@@ -866,10 +803,15 @@ if (studentEmailInput) {
       return;
     }
     try {
-      const exists = await checkEmailExistsRemote(email);
-      if (exists) {
-        setFieldError(studentEmailInput, CONFIG.duplicateEmailMessage);
-        showToast(CONFIG.duplicateEmailMessage, 'error');
+      const result = await checkDuplicateWithFirebase(
+        email,
+        form.studentDocumentType.value,
+        form.studentDocumentNumber.value
+      );
+      if (result?.duplicate) {
+        const message = result.message || CONFIG.duplicateEmailMessage;
+        setFieldError(studentEmailInput, message);
+        showToast(message, 'error');
       }
     } catch (_e) {
       // noop
@@ -884,7 +826,6 @@ closeSuccessBtn.addEventListener('click', () => {
 
 toggleCourseBlocks();
 updateCourseBanner();
-toggleTermsReason();
 toggleHealthCondition();
 updateAgeDependentFields();
 toggleImageGuardianAuthorization();

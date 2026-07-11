@@ -45,36 +45,19 @@ const HEADERS = [
   'Â¿Por quÃ© no estÃ¡s de acuerdo con los tÃ©rminos y condiciones actuales?',
   'Â¿Autoriza a Musicala para tomar fotos y videos del estudiante y compartirlos en redes sociales y YouTube?',
   'Â¿QuiÃ©n otorga la autorizaciÃ³n de uso de imagen?',
-  'Presentas alguna condiciÃ³n y/o enfermedad que consideres relevante para tus clases'
+  'Presentas alguna condiciÃ³n y/o enfermedad que consideres relevante para tus clases',
+  'studentId'
 ];
 
 const EMAIL_QUEUE_PREFIX = 'emailQueue:';
 const EMAIL_QUEUE_TRIGGER_FN = 'processEmailQueue_';
 
 function doGet(e) {
-  try {
-    assertConfig_();
-    const action = String((e && e.parameter && e.parameter.action) || '').trim();
-    if (action === 'checkEmail') {
-      const email = normalizeEmail_((e && e.parameter && e.parameter.email) || '');
-      if (!email) {
-        return jsonResponse_({ ok: true, exists: false, message: 'Sin correo para validar.' });
-      }
-      const sheet = getSheet_();
-      const exists = emailAlreadyExists_(sheet, email);
-      return jsonResponse_({ ok: true, exists: exists });
-    }
-    return jsonResponse_({ ok: true, service: 'Musicala Form API', timestamp: new Date().toISOString() });
-  } catch (error) {
-    return jsonResponse_({
-      ok: false,
-      message: error && error.message ? error.message : 'No fue posible procesar la solicitud.'
-    });
-  }
+  return jsonResponse_({ ok: false, errorCode: 'METHOD_NOT_ALLOWED' });
 }
 
 function doOptions() {
-  return jsonResponse_({ ok: true });
+  return jsonResponse_({ ok: false, errorCode: 'METHOD_NOT_ALLOWED' });
 }
 
 function doPost(e) {
@@ -85,56 +68,189 @@ function doPost(e) {
       throw new Error('No se recibiÃ³ informaciÃ³n para procesar la inscripciÃ³n.');
     }
 
-    const payload = JSON.parse(e.postData.contents);
+    const request = JSON.parse(e.postData.contents);
+    authorizeBackendRequest_(request);
 
-    if (payload && payload.termsAgreement === 'No') {
-      enqueueEmailJob_({
-        type: 'termsDisagreement',
-        payload: payload
-      });
-      return jsonResponse_({
-        ok: false,
-        code: 'TERMS_REJECTED',
-        message: 'Recibimos tu comentario. Para completar la inscripción en Musicala es necesario aceptar los términos y condiciones.'
-      });
+    if (request.eventType === 'student_registration') {
+      return jsonResponse_(processStudentRegistrationRequest_(request));
     }
-
-    validatePayload_(payload);
-
-    const sheet = getSheet_();
-    ensureHeaders_(sheet);
-
-    const normalizedEmail = normalizeEmail_(payload.studentEmail);
-    if (emailAlreadyExists_(sheet, normalizedEmail)) {
-      return jsonResponse_({
-        ok: false,
-        code: 'DUPLICATE_EMAIL',
-        message: 'Este correo ya se encuentra registrado en Musicala. Si necesitas actualizar informaciÃ³n, por favor comunÃ­cate con nuestro equipo.'
-      });
+    if (request.eventType === 'terms_rejected') {
+      return jsonResponse_(processTermsRejectedRequest_(request));
     }
-
-    const row = buildRow_(payload);
-    sheet.appendRow(row);
-    const savedRow = sheet.getLastRow();
-    enqueueEmailJob_({
-      type: 'registrationEmails',
-      payload: payload,
-      sheetName: sheet.getName(),
-      savedRow: savedRow
-    });
-
-    return jsonResponse_({
-      ok: true,
-      message: 'Tu inscripciÃ³n fue enviada correctamente.',
-      sheetName: sheet.getName(),
-      savedRow: savedRow
-    });
+    return jsonResponse_({ ok: false, errorCode: 'UNSUPPORTED_EVENT_TYPE' });
   } catch (error) {
     return jsonResponse_({
       ok: false,
-      message: error && error.message ? error.message : 'OcurriÃ³ un error al procesar la inscripciÃ³n.'
+      errorCode: safeErrorCode_(error),
+      message: 'No fue posible procesar la solicitud auxiliar.'
     });
   }
+}
+
+function authorizeBackendRequest_(request) {
+  const expected = PropertiesService.getScriptProperties().getProperty('LEGACY_APPS_SCRIPT_TOKEN');
+  if (!expected || !request || !secureEquals_(request.token, expected)) {
+    throw new Error('UNAUTHORIZED_BACKEND');
+  }
+  if (['student_registration', 'terms_rejected'].indexOf(String(request.eventType || '')) === -1) {
+    throw new Error('UNSUPPORTED_EVENT_TYPE');
+  }
+}
+
+function secureEquals_(provided, expected) {
+  const a = String(provided || '');
+  const b = String(expected || '');
+  let diff = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i += 1) {
+    diff |= (a.charCodeAt(i % Math.max(1, a.length)) || 0) ^
+      (b.charCodeAt(i % Math.max(1, b.length)) || 0);
+  }
+  return diff === 0;
+}
+
+function processStudentRegistrationRequest_(request) {
+  const studentId = String(request.studentId || '').trim();
+  const idempotencyKey = String(request.idempotencyKey || '').trim();
+  const payload = request.payload || {};
+  if (!studentId || idempotencyKey !== 'student_registration:' + studentId) {
+    throw new Error('INVALID_IDEMPOTENCY_KEY');
+  }
+  if (String(payload.studentId || '') !== studentId) {
+    throw new Error('INVALID_STUDENT_ID');
+  }
+  validatePayload_(payload);
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const state = getIdempotencyState_(idempotencyKey, studentId);
+    const actions = request.actions || {};
+    const errors = [];
+    let sheet = null;
+    let savedRow = Number(state.savedRow || 0);
+
+    // La Function conserva también el estado en integration_jobs. Si una
+    // tarea llega marcada como no requerida, se considera ya confirmada.
+    if (actions.syncSheet === false) state.sheetSynced = true;
+    if (actions.sendWelcomeEmail === false) state.welcomeEmailSent = true;
+    if (actions.sendInternalNotification === false) state.internalNotificationSent = true;
+
+    if (actions.syncSheet !== false && !state.sheetSynced) {
+      try {
+        sheet = getSheet_();
+        ensureHeaders_(sheet);
+        savedRow = upsertStudentRow_(sheet, payload, studentId);
+        state.sheetSynced = true;
+        state.savedRow = savedRow;
+        state.sheetName = sheet.getName();
+        saveIdempotencyState_(idempotencyKey, state);
+      } catch (error) {
+        errors.push(safeErrorCode_(error));
+      }
+    }
+
+    if (!sheet && (state.sheetName || state.savedRow)) {
+      sheet = getSheet_();
+    }
+
+    if (actions.sendInternalNotification !== false && !state.internalNotificationSent && state.sheetSynced) {
+      const result = notifyAdvisor_(payload, state.sheetName || sheet.getName(), savedRow || state.savedRow);
+      if (result && result.ok) {
+        state.internalNotificationSent = true;
+        saveIdempotencyState_(idempotencyKey, state);
+      } else {
+        errors.push('INTERNAL_NOTIFICATION_FAILED');
+      }
+    }
+
+    if (actions.sendWelcomeEmail !== false && !state.welcomeEmailSent && state.sheetSynced) {
+      const result = sendWelcomeEmail_(payload);
+      if (result && result.ok) {
+        state.welcomeEmailSent = true;
+        saveIdempotencyState_(idempotencyKey, state);
+      } else {
+        errors.push('WELCOME_EMAIL_FAILED');
+      }
+    }
+
+    const complete = state.sheetSynced && state.welcomeEmailSent && state.internalNotificationSent;
+    return {
+      ok: complete,
+      errorCode: complete ? '' : (errors[0] || 'PARTIAL_RESULT'),
+      studentId: studentId,
+      sheetSynced: state.sheetSynced === true,
+      welcomeEmailSent: state.welcomeEmailSent === true,
+      internalNotificationSent: state.internalNotificationSent === true
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function processTermsRejectedRequest_(request) {
+  const idempotencyKey = String(request.idempotencyKey || '').trim();
+  const payload = request.payload || {};
+  if (idempotencyKey.indexOf('terms_rejected:') !== 0) throw new Error('INVALID_IDEMPOTENCY_KEY');
+  payload.studentName = String(payload.studentName || '').trim().slice(0, 160);
+  payload.studentEmail = normalizeEmail_(payload.email || payload.studentEmail);
+  payload.termsAgreement = 'No';
+  payload.termsReason = '';
+  if (!payload.studentName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.studentEmail)) {
+    throw new Error('INVALID_TERMS_EVENT');
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    const state = getIdempotencyState_(idempotencyKey, '');
+    if (!state.termsNotificationSent) {
+      const result = notifyTermsDisagreement_(payload);
+      if (!result || !result.ok) {
+        return { ok: false, errorCode: 'TERMS_NOTIFICATION_FAILED', termsNotificationSent: false };
+      }
+      state.termsNotificationSent = true;
+      saveIdempotencyState_(idempotencyKey, state);
+    }
+    return { ok: true, termsNotificationSent: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function idempotencyPropertyKey_(idempotencyKey) {
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idempotencyKey);
+  return 'legacyIntegration:' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
+}
+
+function getIdempotencyState_(idempotencyKey, studentId) {
+  const raw = PropertiesService.getScriptProperties().getProperty(idempotencyPropertyKey_(idempotencyKey));
+  if (!raw) {
+    return {
+      studentId: studentId || '',
+      sheetSynced: false,
+      welcomeEmailSent: false,
+      internalNotificationSent: false,
+      termsNotificationSent: false
+    };
+  }
+  const state = JSON.parse(raw);
+  if (studentId && state.studentId && state.studentId !== studentId) throw new Error('IDEMPOTENCY_CONFLICT');
+  return state;
+}
+
+function saveIdempotencyState_(idempotencyKey, state) {
+  state.updatedAt = new Date().toISOString();
+  PropertiesService.getScriptProperties().setProperty(
+    idempotencyPropertyKey_(idempotencyKey),
+    JSON.stringify(state)
+  );
+}
+
+function safeErrorCode_(error) {
+  return String(error && error.message ? error.message : error || 'UNKNOWN_ERROR')
+    .replace(/[^A-Za-z0-9_.-]+/g, '_')
+    .slice(0, 100);
 }
 
 function validatePayload_(payload) {
@@ -255,12 +371,15 @@ function getSheet_() {
 }
 
 function ensureHeaders_(sheet) {
+  if (sheet.getMaxColumns() < HEADERS.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), HEADERS.length - sheet.getMaxColumns());
+  }
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
     return;
   }
 
-  const newHeaderIndexes = [31, 32, 33];
+  const newHeaderIndexes = [31, 32, 33, 34];
   newHeaderIndexes.forEach(function (index) {
     const cell = sheet.getRange(1, index + 1);
     cell.setValue(HEADERS[index]);
@@ -300,7 +419,7 @@ function savePhoto_(photo, studentName) {
 
 function buildRow_(payload) {
   const now = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
-  const row = new Array(34).fill('');
+  const row = new Array(35).fill('');
 
   // A: Nombre estudiante
   row[0] = payload.studentName || '';
@@ -346,8 +465,37 @@ function buildRow_(payload) {
   row[32] = payload.imageUseAuthorizationBy || '';
   // AH: condición de salud
   row[33] = payload.healthCondition || '';
+  // AI: llave canónica para upsert e idempotencia
+  row[34] = payload.studentId || '';
 
   return row;
+}
+
+function upsertStudentRow_(sheet, payload, studentId) {
+  if (!studentId) throw new Error('MISSING_STUDENT_ID');
+  const row = buildRow_(payload);
+  const studentIdColumn = 35;
+  let targetRow = 0;
+  if (sheet.getLastRow() >= 2) {
+    const found = sheet
+      .getRange(2, studentIdColumn, sheet.getLastRow() - 1, 1)
+      .createTextFinder(studentId)
+      .matchEntireCell(true)
+      .findNext();
+    if (found) targetRow = found.getRow();
+  }
+
+  if (!targetRow) {
+    sheet.appendRow(row);
+    return sheet.getLastRow();
+  }
+
+  // Estado y edad pueden contener fórmulas administrativas: se preservan.
+  const existing = sheet.getRange(targetRow, 1, 1, row.length).getValues()[0];
+  row[1] = existing[1];
+  row[4] = existing[4];
+  sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
+  return targetRow;
 }
 
 function normalizeEmail_(email) {
@@ -540,11 +688,8 @@ function notifyTermsDisagreement_(payload) {
   try {
     const name = String(payload.studentName || 'Sin nombre').trim();
     const email = normalizeEmail_(payload.studentEmail || '');
-    const reason = String(payload.termsReason || '').trim();
-
-    if (!reason) {
-      throw new Error('La persona no escribió la razón del desacuerdo.');
-    }
+    // El evento Firebase conserva solo nombre y correo por minimización.
+    const reason = String(payload.termsReason || '').trim() || 'No recopilado en el evento mínimo.';
 
     const subject = 'No aceptó términos y condiciones: ' + name;
     const fields = [
@@ -772,6 +917,9 @@ function getSafeExtension_(fileName, mimeType) {
 function assertConfig_() {
   if (!CONFIG.SHEET_ID) throw new Error('Falta configurar el ID del archivo de Google Sheets.');
   if (!CONFIG.SHEET_NAME) throw new Error('Falta configurar el nombre de la pestaÃ±a de Google Sheets.');
+  if (!PropertiesService.getScriptProperties().getProperty('LEGACY_APPS_SCRIPT_TOKEN')) {
+    throw new Error('MISSING_LEGACY_APPS_SCRIPT_TOKEN');
+  }
 }
 
 function jsonResponse_(obj) {

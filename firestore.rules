@@ -52,9 +52,31 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Estado operativo del adaptador transitorio de Sheets/correos.
+    // Admin SDK escribe; el equipo autorizado solo consulta.
+    match /integration_jobs/{studentId} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // Eventos mínimos creados exclusivamente por callable/backend.
+    match /registration_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    // Contadores efímeros del backend; nunca visibles para clientes.
+    match /registration_rate_limits/{bucketId} {
+      allow read, write: if false;
+    }
+
     // Todo lo demás: solo personal autorizado.
-    match /{document=**} {
-      allow read, write: if isStaff();
+    match /{collection}/{document=**} {
+      // Las colecciones de backend quedan fuera de este comodín para que sus
+      // reglas explícitas no sean reabiertas por coincidencia múltiple.
+      allow read, write: if isStaff()
+        && collection != 'integration_jobs'
+        && collection != 'registration_events'
+        && collection != 'registration_rate_limits';
     }
   }
 }
