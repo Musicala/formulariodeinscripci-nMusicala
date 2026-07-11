@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// Reglas de estudiantes-musicala (Formulario v2 / Lista de Estudiantes).
+//
+// Principios:
+// - El formulario público solo puede CREAR inscripciones (y reintentar la
+//   misma escritura). Nunca puede leer, listar ni borrar.
+// - studentId es inmutable y debe ser igual al ID del documento.
+// - El documento de identidad (studentDocument) nunca queda expuesto a
+//   lecturas públicas.
+// - El personal autorizado (allowlist de correos) mantiene acceso completo.
+//
+// IMPORTANTE (orden de despliegue): estas reglas cierran la lectura pública.
+// El importador Wix de RIP dejará de poder leer `estudiantes` directamente
+// desde el navegador; primero debe estar desplegada y backfilleada la
+// sincronización Lista → RIP (rip-musicala/students). Ver DEPLOYMENT.md.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isStaff() {
+      return request.auth != null
+        && request.auth.token.email in [
+          "catalina.medina.leal@gmail.com",
+          "alekcaballeromusic@gmail.com",
+          "imusicala@gmail.com",
+          "musicalaasesor@gmail.com",
+          "adminmusicala@gmail.com"
+        ];
+    }
+
+    match /estudiantes/{studentId} {
+      // Personal: lectura y escritura completas.
+      allow read, delete: if isStaff();
+
+      // Formulario público: creación de la inscripción.
+      // El studentId del contenido debe coincidir con la ruta.
+      allow create: if isStaff() || (
+        request.resource.data.studentId == studentId &&
+        request.resource.data.schemaVersion == 2 &&
+        request.resource.data.studentName is string &&
+        request.resource.data.studentName.size() > 0 &&
+        request.resource.data.studentName.size() < 200
+      );
+
+      // Reintentos del mismo envío (merge sobre el mismo doc):
+      // se permite actualizar, pero studentId NUNCA cambia.
+      allow update: if isStaff() || (
+        request.resource.data.studentId == resource.data.studentId &&
+        request.resource.data.studentId == studentId
+      );
+    }
+
+    // Todo lo demás: solo personal autorizado.
+    match /{document=**} {
+      allow read, write: if isStaff();
+    }
+  }
+}
