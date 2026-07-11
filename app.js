@@ -14,6 +14,20 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+
+/*
+  Firebase App Check (reCAPTCHA v3).
+  Pendiente de activación en consola (ver DEPLOYMENT.md, sección App Check):
+  1) registrar el sitio en reCAPTCHA v3, 2) habilitar App Check para el app web
+  en la consola de Firebase, 3) pegar aquí la site key, 4) activar enforcement
+  en Firestore y Storage cuando el % de tráfico verificado sea estable.
+  Con la clave vacía no se activa y el formulario funciona igual que hoy.
+*/
+const APP_CHECK_SITE_KEY = '';
+if (APP_CHECK_SITE_KEY && firebase.appCheck) {
+  firebase.appCheck().activate(APP_CHECK_SITE_KEY, true);
+}
+
 const db = firebase.firestore();
 
 // Genera un UUID v4 estable de negocio (contactId). Usa crypto.randomUUID cuando
@@ -48,11 +62,12 @@ function normalizeStudentName(value) {
     .toLowerCase();
 }
 
-// Huella privada del documento de identidad (SHA-256 hex). Permite detectar
-// duplicados por documento sin exponer el número en consultas ni URLs.
-// Si el navegador no soporta crypto.subtle, se guarda vacío y queda el
-// pendiente documentado en DATA_CONTRACT.md (verificación por backend).
-async function buildDocumentFingerprint(studentDocument) {
+// LEGADO — NO USAR PARA DETECCIÓN DEFINITIVA.
+// La huella oficial del documento se calcula en el BACKEND con
+// HMAC-SHA256(documentoNormalizado, secreto) dentro de syncStudentIdentity
+// (índice privado student_document_index). Este SHA sin llave solo se
+// conserva temporalmente como apoyo de migración y se retirará después.
+async function buildLegacyDocumentSha(studentDocument) {
   const clean = normalizeStudentName(studentDocument).replace(/[^a-z0-9]/g, '');
   if (!clean || typeof crypto === 'undefined' || !crypto.subtle) return '';
   try {
@@ -66,14 +81,14 @@ async function buildDocumentFingerprint(studentDocument) {
   }
 }
 
-async function uploadPhotoToStorage(photoFile, photoBase64, studentName) {
+// La ruta de la foto NO contiene datos personales: se usa el studentId
+// canónico y un UUID. Ver storage.rules (versionadas en esta carpeta).
+async function uploadPhotoToStorage(photoFile, photoBase64, studentId) {
   const storage = firebase.storage();
-  const ext = photoFile.name.split('.').pop().toLowerCase() || 'jpg';
-  const cleanName = (studentName || 'estudiante')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
-  const timestamp = Date.now();
-  const path = `fotos-estudiantes/${cleanName}-${timestamp}.${ext}`;
+  const rawExt = photoFile.name.split('.').pop().toLowerCase();
+  const ext = ['jpg', 'jpeg', 'png', 'webp'].includes(rawExt) ? rawExt : 'jpg';
+  const safeStudentId = String(studentId || '').replace(/[^A-Za-z0-9_-]/g, '') || 'sin-id';
+  const path = `fotos-estudiantes/${safeStudentId}/${generateContactId()}.${ext}`;
 
   const byteString = atob(photoBase64);
   const ab = new ArrayBuffer(byteString.length);
@@ -97,7 +112,8 @@ async function saveToFirestore(payload, photoUrl, documentId, contactId) {
   docData.studentId = documentId;
   docData.studentName = docData.studentName || '';
   docData.normalizedName = normalizeStudentName(docData.studentName);
-  docData.documentFingerprint = await buildDocumentFingerprint(docData.studentDocument);
+  // Solo apoyo de migración; la huella oficial (HMAC) la calcula el backend.
+  docData.documentShaLegacy = await buildLegacyDocumentSha(docData.studentDocument);
   docData.schemaVersion = 2;
   docData.identitySource = 'estudiantes-musicala';
   docData.timestamp = firebase.firestore.FieldValue.serverTimestamp();
@@ -105,29 +121,14 @@ async function saveToFirestore(payload, photoUrl, documentId, contactId) {
 
   const docRef = db.collection('estudiantes').doc(documentId);
 
-  // Si el documento ya existe (reintento u otro flujo) y trae un studentId
-  // distinto al ID de su ruta, no se sobrescribe en silencio: se conserva el
-  // valor encontrado y se deja la inconsistencia registrada para revisión.
-  const existingSnap = await docRef.get().catch(() => null);
-  const existing = existingSnap && existingSnap.exists ? existingSnap.data() : null;
-  if (existing && existing.studentId && existing.studentId !== documentId) {
-    console.warn('Inconsistencia de studentId detectada; no se sobrescribe.', {
-      documentId,
-      existingStudentId: existing.studentId
-    });
-    docData.studentId = existing.studentId;
-    docData.studentIdConflict = {
-      expected: documentId,
-      found: existing.studentId,
-      detectedAt: new Date().toISOString(),
-      source: 'formulario-v2'
-    };
-  }
-  if (!existing) {
-    docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-  }
-
-  await docRef.set(docData, { merge: true });
+  /*
+    Escritura de CREACIÓN única. El cliente público no puede leer ni
+    actualizar `estudiantes` (ver firestore.rules): los reintentos no vuelven
+    a pasar por aquí (flag firestoreSaved) y cualquier inconsistencia de
+    studentId la detecta y reporta el backend (syncStudentIdentity).
+  */
+  docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+  await docRef.set(docData);
   console.log('Firestore guardado, ID:', documentId);
   return documentId;
 }
@@ -715,7 +716,8 @@ async function submitForm(event) {
       pendingFirebaseSubmission = {
         id: db.collection('estudiantes').doc().id,
         contactId: generateContactId(),
-        photoUrl: ''
+        photoUrl: '',
+        firestoreSaved: false
       };
     }
 
@@ -724,16 +726,26 @@ async function submitForm(event) {
       pendingFirebaseSubmission.photoUrl = await uploadPhotoToStorage(
         photoFile,
         photoBase64,
-        payload.studentName
+        pendingFirebaseSubmission.id
       );
     }
 
-    const firestoreId = await saveToFirestore(
-      payload,
-      pendingFirebaseSubmission.photoUrl,
-      pendingFirebaseSubmission.id,
-      pendingFirebaseSubmission.contactId
-    );
+    /*
+      La inscripción se escribe UNA sola vez. Si Firestore ya confirmó y lo
+      que falló fue Apps Script, el reintento salta directo al envío a Apps
+      Script: las reglas públicas no permiten actualizar estudiantes ya
+      creados, y este flujo tampoco lo intenta.
+    */
+    if (!pendingFirebaseSubmission.firestoreSaved) {
+      await saveToFirestore(
+        payload,
+        pendingFirebaseSubmission.photoUrl,
+        pendingFirebaseSubmission.id,
+        pendingFirebaseSubmission.contactId
+      );
+      pendingFirebaseSubmission.firestoreSaved = true;
+    }
+    const firestoreId = pendingFirebaseSubmission.id;
 
     submitBtn.innerHTML = '<span>Enviando a Apps Script...</span>';
     const sheetsPayload = { ...payload };
