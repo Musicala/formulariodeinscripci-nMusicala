@@ -1,4 +1,16 @@
 {
+  "hosting": {
+    "site": "estudiantes-musicala",
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "Code.gs",
+      "firestore.rules",
+      "storage.rules"
+    ]
+  },
   "firestore": {
     "rules": "firestore.rules"
   },
