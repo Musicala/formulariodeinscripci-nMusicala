@@ -76,7 +76,8 @@ service cloud.firestore {
       allow read, write: if isStaff()
         && collection != 'integration_jobs'
         && collection != 'registration_events'
-        && collection != 'registration_rate_limits';
+        && collection != 'registration_rate_limits'
+        && collection != 'student_document_index';
     }
   }
 }
