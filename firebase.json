@@ -4,11 +4,19 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      ".firebaserc",
       "**/.*",
+      "**/.*/**",
+      ".git/**",
+      ".claude/**",
+      ".agents/**",
       "**/node_modules/**",
       "Code.gs",
       "firestore.rules",
-      "storage.rules"
+      "storage.rules",
+      "tests/**",
+      "**/*.log",
+      "**/*.md"
     ]
   },
   "firestore": {
