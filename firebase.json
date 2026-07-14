@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "estudiantes-musicala",
+    "site": "formulario-musicala",
     "public": ".",
     "ignore": [
       "firebase.json",
