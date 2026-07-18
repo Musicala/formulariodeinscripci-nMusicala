@@ -1,83 +1,17 @@
 rules_version = '2';
-
-// Reglas de estudiantes-musicala (Formulario v2 / Lista de Estudiantes).
-//
-// Principios:
-// - El formulario público SOLO puede CREAR inscripciones nuevas.
-//   No puede leer, listar, actualizar ni eliminar. Los reintentos del
-//   formulario no reescriben Firestore (flag firestoreSaved en app.js).
-// - studentId debe ser igual al ID del documento en la creación.
-// - El documento de identidad (studentDocument) nunca queda expuesto a
-//   lecturas públicas. El índice privado student_document_index solo lo
-//   maneja el backend (Admin SDK).
-// - El personal autorizado (allowlist) mantiene acceso administrativo.
-//
-// IMPORTANTE (orden de despliegue): estas reglas cierran la lectura pública.
-// El importador Wix de RIP dejará de poder leer `estudiantes` directamente
-// desde el navegador; primero debe estar desplegada y backfilleada la
-// sincronización Lista → RIP (rip-musicala/students). Ver DEPLOYMENT.md.
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isStaff() {
-      return request.auth != null
-        && request.auth.token.email in [
-          "catalina.medina.leal@gmail.com",
-          "alekcaballeromusic@gmail.com",
-          "imusicala@gmail.com",
-          "musicalaasesor@gmail.com",
-          "adminmusicala@gmail.com"
-        ];
-    }
-
+    function isReader() { return request.auth != null && request.auth.token.email in ['alekcaballeromusic@gmail.com', 'catalina.medina.leal@gmail.com', 'adminmusicala@gmail.com', 'musicalaasesor@gmail.com']; }
+    function isEditor() { return request.auth != null && request.auth.token.email in ['alekcaballeromusic@gmail.com', 'catalina.medina.leal@gmail.com']; }
     match /estudiantes/{studentId} {
-      // Personal: lectura y escritura administrativas completas.
-      allow read, update, delete: if isStaff();
-
-      // Formulario público: SOLO creación de la inscripción, una vez.
-      // El studentId del contenido debe coincidir con la ruta.
-      allow create: if isStaff() || (
-        request.resource.data.studentId == studentId &&
-        request.resource.data.schemaVersion == 2 &&
-        request.resource.data.studentName is string &&
-        request.resource.data.studentName.size() > 0 &&
-        request.resource.data.studentName.size() < 200
-      );
+      allow read: if isReader();
+      allow update, delete: if isEditor();
+      allow create: if isEditor() || (request.resource.data.studentId == studentId && request.resource.data.schemaVersion == 2 && request.resource.data.studentName is string && request.resource.data.studentName.size() > 0 && request.resource.data.studentName.size() < 200);
     }
-
-    // Índice privado de huellas de documento (HMAC calculado por backend).
-    // Nunca accesible desde clientes, ni siquiera del personal: se consulta
-    // exclusivamente via Admin SDK.
-    match /student_document_index/{fingerprint} {
-      allow read, write: if false;
-    }
-
-    // Estado operativo del adaptador transitorio de Sheets/correos.
-    // Admin SDK escribe; el equipo autorizado solo consulta.
-    match /integration_jobs/{studentId} {
-      allow read: if isStaff();
-      allow write: if false;
-    }
-
-    // Eventos mínimos creados exclusivamente por callable/backend.
-    match /registration_events/{eventId} {
-      allow read, write: if false;
-    }
-
-    // Contadores efímeros del backend; nunca visibles para clientes.
-    match /registration_rate_limits/{bucketId} {
-      allow read, write: if false;
-    }
-
-    // Todo lo demás: solo personal autorizado.
-    match /{collection}/{document=**} {
-      // Las colecciones de backend quedan fuera de este comodín para que sus
-      // reglas explícitas no sean reabiertas por coincidencia múltiple.
-      allow read, write: if isStaff()
-        && collection != 'integration_jobs'
-        && collection != 'registration_events'
-        && collection != 'registration_rate_limits'
-        && collection != 'student_document_index';
-    }
+    match /student_document_index/{fingerprint} { allow read, write: if false; }
+    match /integration_jobs/{studentId} { allow read: if isReader(); allow write: if false; }
+    match /registration_events/{eventId} { allow read, write: if false; }
+    match /registration_rate_limits/{bucketId} { allow read, write: if false; }
+    match /{collection}/{document=**} { allow read, write: if false; }
   }
 }
