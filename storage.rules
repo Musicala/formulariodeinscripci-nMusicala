@@ -1,45 +1,16 @@
 rules_version = '2';
-
-// Reglas de Storage de estudiantes-musicala (fotos de inscripción).
-// Versionadas junto al Formulario v2. Desplegar con:
-//   firebase deploy --only storage --project estudiantes-musicala
-//
-// Política:
-// - El formulario público solo puede SUBIR (create) una foto nueva bajo
-//   fotos-estudiantes/{studentId}/{archivo}. La ruta no contiene el nombre
-//   del estudiante (privacidad): studentId canónico + UUID.
-// - Solo imágenes (image/*) y máximo 4 MB (el formulario ya limita a 3 MB).
-// - Sin sobrescrituras ni borrados públicos.
-// - Sin listar carpetas públicamente (list solo personal).
-// - La app muestra las fotos mediante download URLs con token, que no
-//   dependen de `allow read`; la lectura directa queda para el personal.
-
 service firebase.storage {
   match /b/{bucket}/o {
-    function isStaff() {
-      return request.auth != null
-        && request.auth.token.email in [
-          "catalina.medina.leal@gmail.com",
-          "alekcaballeromusic@gmail.com",
-          "imusicala@gmail.com",
-          "musicalaasesor@gmail.com",
-          "adminmusicala@gmail.com"
-        ];
+    match /fotos-estudiantes/{fileName} {
+      // Solo permite subir imágenes JPG, PNG o WEBP de máximo 3 MB
+      allow write: if request.resource.size <= 3 * 1024 * 1024
+                   && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      // Solo lectura pública (para poder mostrar la foto después)
+      allow read: if true;
     }
-
-    match /fotos-estudiantes/{studentId}/{fileName} {
-      allow create: if isStaff() || (
-        request.resource.contentType.matches('image/.*') &&
-        request.resource.size < 4 * 1024 * 1024
-      );
-      allow update, delete: if isStaff();
-      allow read: if isStaff();
-    }
-
-    // Rutas legadas (fotos-estudiantes/nombre-timestamp.ext): solo personal.
-    // No se borran; la migración de fotos es opcional y manual.
+    // Bloquea cualquier otra ruta
     match /{allPaths=**} {
-      allow read, write: if isStaff();
+      allow read, write: if false;
     }
   }
 }

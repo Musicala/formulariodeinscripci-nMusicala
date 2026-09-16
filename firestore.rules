@@ -1,17 +1,82 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isReader() { return request.auth != null && request.auth.token.email in ['alekcaballeromusic@gmail.com', 'catalina.medina.leal@gmail.com', 'adminmusicala@gmail.com', 'musicalaasesor@gmail.com']; }
-    function isEditor() { return request.auth != null && request.auth.token.email in ['alekcaballeromusic@gmail.com', 'catalina.medina.leal@gmail.com']; }
-    match /estudiantes/{studentId} {
-      allow read: if isReader();
-      allow update, delete: if isEditor();
-      allow create: if isEditor() || (request.resource.data.studentId == studentId && request.resource.data.schemaVersion == 2 && request.resource.data.studentName is string && request.resource.data.studentName.size() > 0 && request.resource.data.studentName.size() < 200);
+
+    function isReader() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'alekcaballeromusic@gmail.com',
+          'catalina.medina.leal@gmail.com',
+          'adminmusicala@gmail.com',
+          'musicalaasesor@gmail.com'
+        ];
     }
-    match /student_document_index/{fingerprint} { allow read, write: if false; }
-    match /integration_jobs/{studentId} { allow read: if isReader(); allow write: if false; }
-    match /registration_events/{eventId} { allow read, write: if false; }
-    match /registration_rate_limits/{bucketId} { allow read, write: if false; }
-    match /{collection}/{document=**} { allow read, write: if false; }
+
+    function isEditor() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'alekcaballeromusic@gmail.com',
+          'catalina.medina.leal@gmail.com'
+        ];
+    }
+
+    function isDianReporter() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'cpsoraya@gmail.com',
+          'cpsoraya@inplementar.com',
+          'espana.carlos@inplementar.com',
+          'mateo.munoz@inplementar.com',
+          'sonia.pineda@inplementar.com'
+        ];
+    }
+
+    match /estudiantes/{studentId} {
+
+      // Lectores internos:
+      // pueden consultar la colección y documentos individuales.
+      allow read: if isReader();
+
+      // Usuarios autorizados únicamente para listar estudiantes
+      // y generar el reporte DIAN.
+      allow list: if isDianReporter();
+
+      // Solo Alek y Cata pueden actualizar o eliminar estudiantes.
+      allow update, delete: if isEditor();
+
+      // Creación autorizada para editores o mediante
+      // el formulario de registro con validaciones mínimas.
+      allow create: if isEditor()
+        || (
+          request.resource.data.studentId == studentId
+          && request.resource.data.schemaVersion == 2
+          && request.resource.data.studentName is string
+          && request.resource.data.studentName.size() > 0
+          && request.resource.data.studentName.size() < 200
+        );
+    }
+
+    match /student_document_index/{fingerprint} {
+      allow read, write: if false;
+    }
+
+    match /integration_jobs/{studentId} {
+      allow read: if isReader();
+      allow write: if false;
+    }
+
+    match /registration_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /registration_rate_limits/{bucketId} {
+      allow read, write: if false;
+    }
+
+    // Todo lo que no esté expresamente autorizado queda bloqueado.
+    match /{collection}/{document=**} {
+      allow read, write: if false;
+    }
   }
 }
