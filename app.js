@@ -13,20 +13,6 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-
-/*
-  Firebase App Check (reCAPTCHA v3).
-  Pendiente de activación en consola (ver DEPLOYMENT.md, sección App Check):
-  1) registrar el sitio en reCAPTCHA v3, 2) habilitar App Check para el app web
-  en la consola de Firebase, 3) pegar aquí la site key, 4) activar enforcement
-  en Firestore y Storage cuando el % de tráfico verificado sea estable.
-  Con la clave vacía no se activa y el formulario funciona igual que hoy.
-*/
-const APP_CHECK_SITE_KEY = '';
-if (APP_CHECK_SITE_KEY && firebase.appCheck) {
-  firebase.appCheck().activate(APP_CHECK_SITE_KEY, true);
-}
-
 const db = firebase.firestore();
 const functions = firebase.app().functions('us-central1');
 const checkStudentRegistrationDuplicate = functions.httpsCallable('checkStudentRegistrationDuplicate');
@@ -53,44 +39,14 @@ function generateContactId() {
   });
 }
 
-// Nombre normalizado para búsquedas y detección de duplicados. NO es el ID:
-// el studentId canónico es siempre el ID del documento de Firestore.
-function normalizeStudentName(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
-
-// LEGADO — NO USAR PARA DETECCIÓN DEFINITIVA.
-// La huella oficial del documento se calcula en el BACKEND con
-// HMAC-SHA256(documentoNormalizado, secreto) dentro de syncStudentIdentity
-// (índice privado student_document_index). Este SHA sin llave solo se
-// conserva temporalmente como apoyo de migración y se retirará después.
-async function buildLegacyDocumentSha(studentDocument) {
-  const clean = normalizeStudentName(studentDocument).replace(/[^a-z0-9]/g, '');
-  if (!clean || typeof crypto === 'undefined' || !crypto.subtle) return '';
-  try {
-    const bytes = new TextEncoder().encode(`musicala:doc:${clean}`);
-    const hash = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(hash))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  } catch (_e) {
-    return '';
-  }
-}
-
-// La ruta de la foto NO contiene datos personales: se usa el studentId
-// canónico y un UUID. Ver storage.rules (versionadas en esta carpeta).
-async function uploadPhotoToStorage(photoFile, photoBase64, studentId) {
+async function uploadPhotoToStorage(photoFile, photoBase64, studentName) {
   const storage = firebase.storage();
-  const rawExt = photoFile.name.split('.').pop().toLowerCase();
-  const ext = ['jpg', 'jpeg', 'png', 'webp'].includes(rawExt) ? rawExt : 'jpg';
-  const safeStudentId = String(studentId || '').replace(/[^A-Za-z0-9_-]/g, '') || 'sin-id';
-  const path = `fotos-estudiantes/${safeStudentId}/${generateContactId()}.${ext}`;
+  const ext = photoFile.name.split('.').pop().toLowerCase() || 'jpg';
+  const cleanName = (studentName || 'estudiante')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
+  const timestamp = Date.now();
+  const path = `fotos-estudiantes/${cleanName}-${timestamp}.${ext}`;
 
   const byteString = atob(photoBase64);
   const ab = new ArrayBuffer(byteString.length);
@@ -106,30 +62,13 @@ async function saveToFirestore(payload, photoUrl, documentId, contactId) {
   const docData = { ...payload };
   delete docData.photo;
   if (photoUrl) docData.photoUrl = photoUrl;
-  // contactId: identificador de negocio heredado (UUID). Se conserva como alias
-  // secundario, pero el ID oficial del estudiante es studentId (= ID del doc).
   if (!docData.contactId && contactId) docData.contactId = contactId;
-
-  // Contrato de identidad v2: el studentId canónico es el ID del documento.
   docData.studentId = documentId;
-  docData.studentName = docData.studentName || '';
-  docData.normalizedName = normalizeStudentName(docData.studentName);
-  // Solo apoyo de migración; la huella oficial (HMAC) la calcula el backend.
-  docData.documentShaLegacy = await buildLegacyDocumentSha(docData.studentDocument);
   docData.schemaVersion = 2;
   docData.identitySource = 'estudiantes-musicala';
   docData.timestamp = firebase.firestore.FieldValue.serverTimestamp();
-  docData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-
-  const docRef = db.collection('estudiantes').doc(documentId);
-
-  /*
-    Escritura de CREACIÓN única. El cliente público no puede leer ni
-    actualizar `estudiantes` (ver firestore.rules): los reintentos no vuelven
-    a pasar por aquí (flag firestoreSaved) y cualquier inconsistencia de
-    studentId la detecta y reporta el backend (syncStudentIdentity).
-  */
   docData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+  const docRef = db.collection('estudiantes').doc(documentId);
   await docRef.set(docData);
   console.log('Firestore guardado, ID:', documentId);
   return documentId;
@@ -290,6 +229,18 @@ function clearErrors() {
   form.querySelectorAll('.error-text').forEach((el) => el.remove());
 }
 
+function getFieldLabel(field) {
+  if (!field) return 'este campo';
+  const explicitLabel = field.id
+    ? form.querySelector(`label[for="${field.id}"]`)
+    : null;
+  if (explicitLabel) return explicitLabel.textContent.replace(/\*/g, '').trim();
+
+  const fieldGroup = field.closest('.field');
+  const groupLabel = fieldGroup?.querySelector(':scope > label');
+  return groupLabel?.textContent.replace(/\*/g, '').trim() || field.name || 'este campo';
+}
+
 function validateConditionalSelections() {
   const c = courseSelect.value;
   if (c === 'Música' && getCheckedValues('instrument').length === 0 && !document.getElementById('instrumentOther').value.trim()) {
@@ -424,17 +375,9 @@ async function checkDuplicateWithFirebase(email, documentType, documentNumber) {
   const safeType = String(documentType || '').trim().toUpperCase();
   const safeNumber = String(documentNumber || '').trim();
   if (!normalized || !safeType || !safeNumber) return null;
-
   const key = `${normalized}|${safeType}|${safeNumber.toUpperCase()}`;
-  if (duplicateCheckCache.key === key && duplicateCheckCache.result) {
-    return duplicateCheckCache.result;
-  }
-
-  const response = await checkStudentRegistrationDuplicate({
-    email: normalized,
-    documentType: safeType,
-    documentNumber: safeNumber
-  });
+  if (duplicateCheckCache.key === key && duplicateCheckCache.result) return duplicateCheckCache.result;
+  const response = await checkStudentRegistrationDuplicate({ email: normalized, documentType: safeType, documentNumber: safeNumber });
   const result = response?.data || {};
   duplicateCheckCache.key = key;
   duplicateCheckCache.result = result;
@@ -444,22 +387,18 @@ async function checkDuplicateWithFirebase(email, documentType, documentNumber) {
 async function canContinueAfterDuplicateCheck(email, documentType, documentNumber) {
   try {
     const result = await checkDuplicateWithFirebase(email, documentType, documentNumber);
-    if (!result) return true;
-    if (result.duplicate) {
-      const message = result.message || CONFIG.duplicateEmailMessage;
+    if (!result || result.canContinue !== true || result.duplicate) {
+      const message = result?.message || CONFIG.duplicateEmailMessage;
       setFieldError(form.studentEmail, message);
       showToast(message, 'error');
       return false;
     }
-    return result.canContinue === true;
+    return true;
   } catch (_error) {
-    const proceed = window.confirm(
-      'No pudimos verificar si la inscripción ya existe. Puedes cancelar e intentarlo más tarde, o continuar de forma controlada; el equipo revisará cualquier posible duplicado.'
-    );
-    if (!proceed) {
-      showToast('La inscripción se detuvo porque no fue posible verificar duplicados.', 'error');
-    }
-    return proceed;
+    const message = 'No fue posible verificar duplicados. La inscripción no se envió; inténtalo más tarde.';
+    setFieldError(form.studentEmail, message);
+    showToast(message, 'error');
+    return false;
   }
 }
 
@@ -558,9 +497,45 @@ function buildPayload(photoBase64, photoFile) {
   };
 }
 
+function buildTermsRejectionPayload() {
+  const studentDocument = `${form.studentDocumentType?.value || ''}${form.studentDocumentNumber?.value || ''}`.trim();
+  const guardianDocument = `${form.guardianDocumentType?.value || ''}${form.guardianDocumentNumber?.value || ''}`.trim();
+  const healthAnswer = form.querySelector('input[name="healthConditionAnswer"]:checked')?.value || '';
+
+  return {
+    studentName: form.studentName?.value.trim() || '',
+    studentDocument,
+    birthDate: form.birthDate?.value || '',
+    age: form.age?.value || '',
+    studentCity: form.studentCity?.value.trim() || '',
+    studentAddress: form.studentAddress?.value.trim() || '',
+    studentEmail: form.studentEmail?.value.trim().toLowerCase() || '',
+    phone: normalizeDigits(form.phone?.value || ''),
+    mobile: normalizeDigits(form.mobile?.value || ''),
+    course: form.course?.value || '',
+    selectedPlan: form.selectedPlan?.value || '',
+    modality: form.modality?.value || '',
+    eps: form.eps?.value.trim() || '',
+    rh: form.rh?.value.trim() || '',
+    guardianName: form.guardianName?.value.trim() || '',
+    guardianDocument,
+    guardianMobile: normalizeDigits(form.guardianMobile?.value || ''),
+    guardianPhone: normalizeDigits(form.guardianPhone?.value || ''),
+    guardianAddress: form.guardianAddress?.value.trim() || '',
+    relationship: form.relationship?.value.trim() || '',
+    healthCondition: healthAnswer === 'Sí' ? `Sí: ${form.healthCondition?.value.trim() || ''}` : healthAnswer,
+    termsAgreement: 'No',
+    termsReason: form.termsReason?.value.trim() || '',
+    imageUseAuthorization: form.querySelector('input[name="imageUseAuthorization"]:checked')?.value || '',
+    imageUseAuthorizationBy: form.querySelector('input[name="imageUseAuthorizationBy"]:checked')?.value || '',
+    referredName: form.referredName?.value.trim() || '',
+    referredMobile: normalizeDigits(form.referredMobile?.value || '')
+  };
+}
+
 async function notifyTermsRejection() {
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span>Registrando decisión...</span>';
+  submitBtn.innerHTML = '<span>Enviando comentario...</span>';
 
   try {
     await createTermsRejectedEvent({
@@ -569,7 +544,7 @@ async function notifyTermsRejection() {
     });
     showToast('Registramos que no aceptaste los términos. Para inscribirte en Musicala debes aceptarlos.', 'error');
   } catch (error) {
-    showToast(error?.message || 'No fue posible registrar la decisión.', 'error');
+    showToast(error?.message || 'No fue posible enviar el comentario.', 'error');
   } finally {
     submitBtn.disabled = false;
     submitBtn.innerHTML = '<span>Enviar inscripción</span>';
@@ -587,10 +562,19 @@ async function submitForm(event) {
   }
 
   if (!form.checkValidity()) {
-    [...form.querySelectorAll(':invalid')].forEach((field) => {
-      if (field.type !== 'radio') setFieldError(field, 'Este campo es obligatorio.');
+    const invalidFields = [...form.querySelectorAll(':invalid')];
+    invalidFields.forEach((field) => {
+      if (field.type !== 'radio') {
+        setFieldError(field, `Completa: ${getFieldLabel(field)}.`);
+      }
     });
-    showToast('Revisa los campos obligatorios antes de enviar.', 'error');
+    const firstInvalid = invalidFields[0];
+    const label = getFieldLabel(firstInvalid);
+    if (firstInvalid?.type === 'radio') {
+      setFieldError(firstInvalid, `Selecciona una opción en: ${label}.`);
+    }
+    firstInvalid?.focus();
+    showToast(`Falta completar: ${label}.`, 'error');
     updateProgress();
     return;
   }
@@ -673,7 +657,7 @@ async function submitForm(event) {
       return;
     }
 
-    // Firebase confirma la inscripción; los efectos secundarios son backend.
+    // Firebase confirma la inscripción; los correos y Sheets se procesan en backend.
     if (!pendingFirebaseSubmission) {
       pendingFirebaseSubmission = {
         id: db.collection('estudiantes').doc().id,
@@ -692,8 +676,6 @@ async function submitForm(event) {
       );
     }
 
-    // La inscripción se escribe UNA sola vez. Los correos y la copia
-    // transitoria en Sheets se ejecutan en backend y nunca bloquean el éxito.
     if (!pendingFirebaseSubmission.firestoreSaved) {
       await saveToFirestore(
         payload,
@@ -703,6 +685,7 @@ async function submitForm(event) {
       );
       pendingFirebaseSubmission.firestoreSaved = true;
     }
+
     pendingFirebaseSubmission = null;
     form.reset();
     toggleCourseBlocks();
